@@ -20,23 +20,238 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
     
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
     <div id="app">
-        <header class="app-header">
-            <h1>全屏模式体验</h1>
-        </header>
-        <main class="app-content">
-            <p>请在 iOS Safari 中点击底部中间的<strong>“分享”</strong>按钮，然后选择<strong>“添加到主屏幕”</strong>。</p>
-            <p>从主屏幕点击图标打开此应用，即可体验沉浸式全屏，顶部和底部地址栏将完全消失。</p>
-        </main>
-        <footer class="app-tabbar">
-            <div>首页</div>
-            <div>发现</div>
-            <div>我的</div>
-        </footer>
+        <!-- Pages Container for Swipe -->
+        <div class="pages-container" id="pages-container">
+            <!-- Page 1 (Ins Widget & Apps) -->
+            <div class="page-wrapper">
+                <div class="main-grid" id="main-grid-1">
+                    <!-- Custom Profile Widget (Top, 4x3 = 12 slots) -->
+                    <div class="ins-profile-widget" id="ins-profile-widget" style="background-color: rgba(255, 255, 255, 0.9); box-shadow: none;">
+                        <div class="delete-widget-btn"><i class="fas fa-times"></i></div>
+                        <div class="custom-widget-top">
+                            <div class="custom-widget-avatar-wrapper" id="custom-avatar-btn-desktop">
+                                <img src="" id="custom-avatar-img-desktop" style="display: none;">
+                                <i class="fas fa-user"></i>
+                                <input type="file" id="custom-avatar-upload-desktop" accept="image/*" style="display:none;">
+                            </div>
+                            <div class="custom-widget-stats">
+                                <div class="custom-widget-stat-item">
+                                    <div class="custom-widget-stat-num" contenteditable="true" spellcheck="false">0</div>
+                                    <div class="custom-widget-stat-label">Posts</div>
+                                </div>
+                                <div class="custom-widget-stat-item">
+                                    <div class="custom-widget-stat-num" contenteditable="true" spellcheck="false">1314</div>
+                                    <div class="custom-widget-stat-label">Followers</div>
+                                </div>
+                                <div class="custom-widget-stat-item">
+                                    <div class="custom-widget-stat-num" contenteditable="true" spellcheck="false">520</div>
+                                    <div class="custom-widget-stat-label">Following</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="custom-widget-name" id="custom-name-desktop" contenteditable="true" spellcheck="false">name @iisonyoung</div>
+                        <div class="custom-widget-edit-btn" style="border-radius: 20px;">Edit Profile</div>
+                        <div class="custom-widget-bottom" style="display: flex; justify-content: flex-start; gap: 15px;">
+                            <div class="custom-widget-add-icon" style="width: 40px; height: 40px;"><i class="fas fa-plus"></i></div>
+                            <div class="custom-widget-small-avatar" id="custom-small-avatar-btn-desktop" style="width: 40px; height: 40px; border-radius: 50%;">
+                                <img src="" id="custom-small-avatar-img-desktop" style="display: none;">
+                                <i class="fas fa-image"></i>
+                                <input type="file" id="custom-small-avatar-upload-desktop" accept="image/*" style="display:none;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Apps and Pet Widget (Bottom) -->
+                    <div class="app-item" id="app-pay-btn" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-1" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;"><i class="fas fa-wallet"></i></div>
+                        <span class="app-name">Pay</span>
+                    </div>
+                    <div class="app-item tiktok-app" id="app-tiktok-btn" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-2" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 30px;"><i class="fab fa-tiktok"></i></div>
+                        <span class="app-name">TikTok</span>
+                    </div>
+                    
+                    <!-- Pet Widget (2x2 = 4 slots) -->
+                    <div class="pet-widget" id="pet-widget-desktop">
+                        <div class="delete-widget-btn"><i class="fas fa-times"></i></div>
+                        <div class="pet-widget-img-wrapper" id="pet-img-container-desktop">
+                            <img src="" id="pet-img-desktop">
+                            <i class="fas fa-image" id="pet-icon-desktop" style="font-size: 30px; color: #ccc;"></i>
+                            <input type="file" id="pet-upload-desktop" accept="image/*" style="display:none;">
+                        </div>
+                        <div class="pet-widget-bubble" id="pet-bubble-desktop" contenteditable="true" spellcheck="false">oxo</div>
+                        <div class="pet-widget-music-icon"><i class="fas fa-music"></i></div>
+                        <div class="pet-widget-plus-btn"><i class="fas fa-plus"></i></div>
+                    </div>
+
+                    <!-- More Apps (2 slots) -->
+                    <div class="app-item bstage-app" id="app-bstage-btn" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-3" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 26px;">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
+                        <span class="app-name">b.stage</span>
+                    </div>
+                    <div class="app-item x-app" id="app-x-btn" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-4" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 26px;">
+                            <i class="fa-brands fa-x-twitter"></i>
+                        </div>
+                        <span class="app-name">X</span>
+                    </div>
+                    
+                    <!-- The above takes 12 (Ins Profile) + 4 (Pet) + 4 (Apps) = 20 slots. We need 4 empty slots to equal 24. -->
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                </div>
+            </div>
+
+            <!-- Page 2 (Layout Adjusted directly in HTML) -->
+            <div class="page-wrapper">
+                <div class="main-grid" id="main-grid-2">
+                    <!-- Top: Custom Music Widget (4x2 = 8 slots) -->
+                    <div class="custom-music-widget" id="custom-music-widget-desktop-2">
+                        <div class="delete-widget-btn"><i class="fas fa-times"></i></div>
+                        <div style="position: absolute; top: 12px; left: 12px; width: 28px; height: 28px; border-radius: 50%; background-color: #e5e5ea; display: flex; justify-content: center; align-items: center; color: #000; font-size: 14px; box-shadow: none; z-index: 5;">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                        
+                        <div style="display: flex; flex: 1; align-items: center; gap: 15px; margin-bottom: 12px; padding-top: 10px; padding-left: 36px;">
+                            <!-- Left: Uploadable Image -->
+                            <div id="cm-cover-btn-d2" style="width: 90px; height: 90px; border-radius: 16px; background-color: #e5e5ea; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; flex-shrink: 0; box-shadow: none; border: 1px solid rgba(0,0,0,0.05);">
+                                <img src="" id="cm-cover-img-d2" style="width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; top: 0; left: 0;">
+                                <i class="fas fa-image" id="cm-cover-icon-d2" style="font-size: 30px; color: #ccc;"></i>
+                                <input type="file" id="cm-cover-upload-d2" accept="image/*" style="display:none;">
+                            </div>
+                            
+                            <!-- Right: Centered Text -->
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 3px; height: 20px; background-color: #000; border-radius: 2px; box-shadow: none;"></div>
+                                    <div contenteditable="true" spellcheck="false" style="font-size: 18px; font-weight: 600; color: #333; outline: none; white-space: nowrap;">iisonyoung</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom: Progress and Controls -->
+                        <div style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 0 8px; box-sizing: border-box;">
+                            <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">2:04</div>
+                            <div style="flex: 1; height: 5px; background-color: rgba(0,0,0,0.1); border-radius: 3px; position: relative;">
+                                <div style="position: absolute; top: 0; left: 0; height: 100%; width: 68%; background-color: #ccc; border-radius: 3px;"></div>
+                            </div>
+                            <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">-0:56</div>
+                            <div style="margin-left: 8px; color: #000; font-size: 18px; display: flex; align-items: center; justify-content: center; width: 24px;">
+                                <i class="fas fa-pause"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- App 1 & App 2 (Left side of Row 3) -->
+                    <div class="app-item" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-5" style="background: #ffffff; color: #1c1c1e; display: flex; justify-content: center; align-items: center; border: 1px solid #e5e5ea;"><i class="fas fa-book" style="color: #1c1c1e; font-size: 30px; filter: none;"></i></div>
+                        <span class="app-name">Diary</span>
+                    </div>
+                    <div class="app-item" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-6" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;"><i class="fas fa-map-location-dot"></i></div>
+                        <span class="app-name">Maps</span>
+                    </div>
+
+                    <!-- Couple Widget (2x2 = 4 slots) - Automatically takes Row 3 Col 3-4 and Row 4 Col 3-4 -->
+                    <div class="couple-widget" id="couple-widget-desktop-2">
+                        <div class="delete-widget-btn"><i class="fas fa-times"></i></div>
+                        <div class="couple-avatar-container">
+                            <div class="couple-bubble" contenteditable="true" spellcheck="false">ㅠㅠ</div>
+                            <div class="couple-img-wrapper" id="couple-img-container-1-d2">
+                                <img src="" id="couple-img-1-d2">
+                                <i class="fas fa-image" id="couple-icon-1-d2"></i>
+                                <input type="file" id="couple-upload-1-d2" accept="image/*" style="display:none;">
+                            </div>
+                        </div>
+                        <div class="couple-avatar-container">
+                            <div class="couple-bubble" contenteditable="true" spellcheck="false">ㅎㅎ</div>
+                            <div class="couple-img-wrapper" id="couple-img-container-2-d2">
+                                <img src="" id="couple-img-2-d2">
+                                <i class="fas fa-image" id="couple-icon-2-d2"></i>
+                                <input type="file" id="couple-upload-2-d2" accept="image/*" style="display:none;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- App 3 & App 4 (Left side of Row 4) -->
+                    <div class="app-item" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-7" style="background: #ffffff; color: #111111; border: 1px solid #d9d9d9; display: flex; justify-content: center; align-items: center; font-size: 28px;">
+                            <i class="fas fa-feather-pointed" style="color: #9d1d1d;"></i>
+                        </div>
+                        <span class="app-name">AO3</span>
+                    </div>
+                    <div class="app-item loves-app" id="app-loves-btn" style="cursor: pointer;">
+                        <div class="app-icon icon-placeholder" id="app-icon-8" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <span class="app-name">Loves</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Page 3 (Empty Grid for dragging) -->
+            <div class="page-wrapper">
+                <div class="main-grid" id="main-grid-3">
+                    <!-- Fill with 24 empty slots -->
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                    <div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div><div class="app-item empty-slot"><div class="app-icon" style="opacity:0;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Indicators (Dots) -->
+        <div class="page-indicators" id="page-indicators">
+            <div class="dot active"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+
+        <!-- Home Screen Search Pill -->
+        <div class="home-search-pill">
+            <i class="fas fa-search"></i>
+            <span>Search</span>
+        </div>
+
+        <!-- Floating Dock -->
+        <div class="dock-container">
+            <div class="dock" id="dock">
+                <div class="app-item" id="dock-icon-settings" style="cursor: pointer;">
+                    <div class="app-icon" style="background: #ffffff; font-size: 32px; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center;">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <span class="app-name">设置</span>
+                </div>
+                <div class="app-item imessage-app" id="dock-icon-imessage" style="cursor: pointer;">
+                    <div class="app-icon" style="background: linear-gradient(180deg, #ffffff 0%, #f2f2f7 100%); font-size: 32px; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center;">
+                        <i class="fas fa-comment"></i>
+                    </div>
+                    <span class="app-name">信息</span>
+                </div>
+                <div class="app-item youtube-app" id="dock-icon-youtube" style="cursor: pointer;">
+                    <div class="app-icon" style="background: #ffffff; color: #1c1c1e; font-size: 38px; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center;">
+                        <i class="fab fa-youtube"></i>
+                    </div>
+                    <span class="app-name">YouTube</span>
+                </div>
+            </div>
+        </div>
+
     </div>
 
+    <!-- 引入存储管理模块 -->
+    <script src="storage.js"></script>
+    <!-- 引入主逻辑脚本 -->
     <script src="script.js"></script>
 </body>
 </html>

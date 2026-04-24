@@ -1,6 +1,6 @@
 {
-  "name": "全屏Web App",
-  "short_name": "全屏App",
+  "name": "u2phone",
+  "short_name": "u2phone",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
