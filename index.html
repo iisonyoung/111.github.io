@@ -354,13 +354,9 @@
                             <div class="settings-text">导入全局数据</div>
                             <input type="file" id="import-data-file" accept=".json" style="display:none;">
                         </div>
-                        <div class="settings-item" id="clear-data-btn" style="border-bottom: 1px solid var(--separator-color);">
+                        <div class="settings-item" id="clear-data-btn" style="border-bottom: none;">
                             <div class="settings-icon" style="background-color: #ff3b30;"><i class="fas fa-trash-alt"></i></div>
                             <div class="settings-text" style="color: #ff3b30;">清空用户数据</div>
-                        </div>
-                        <div class="settings-item" id="format-all-data-btn" style="border-bottom: none;">
-                            <div class="settings-icon" style="background-color: #ff3b30;"><i class="fas fa-skull-crossbones"></i></div>
-                            <div class="settings-text" style="color: #ff3b30; font-weight: 600;">清空所有数据 (格式化)</div>
                         </div>
                     </div>
 
@@ -467,6 +463,255 @@
                         </div>
                         
                         <div class="sheet-action confirm-action" id="confirm-sync-btn">确认保存</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Config Bottom Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="api-config-sheet" style="z-index: 500;">
+            <div class="bottom-sheet" style="max-height: 85%;">
+                <div class="sheet-handle"></div>
+                
+                <!-- 双Tab切换 -->
+                <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+                    <div class="pay-segment-control" style="background: #e5e5ea; padding: 2px; border-radius: 8px;">
+                        <div class="pay-segment-btn active" id="api-tab-main" style="padding: 6px 20px; font-size: 14px;">主 API</div>
+                        <div class="pay-segment-btn" id="api-tab-sub" style="padding: 6px 20px; font-size: 14px;">副 API</div>
+                    </div>
+                </div>
+
+                <div class="detail-sheet-content" style="padding-bottom: 20px;">
+                    <!-- 副API专属：启用开关及场景预留 -->
+                    <div id="sub-api-controls" style="display: none;">
+                        <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                            <div class="form-item" style="justify-content: space-between; border-bottom: 1px solid var(--separator-color);">
+                                <label style="width: auto; font-size: 17px; color: #000;">启用副 API</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="api-enable-sub-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-item" style="justify-content: space-between; border-bottom: none; cursor: pointer;">
+                                <label style="width: auto; font-size: 17px; color: #000;">应用场景</label>
+                                <div style="display: flex; align-items: center; color: #8e8e93; font-size: 15px;">
+                                    <span id="sub-api-scenario">全部</span>
+                                    <i class="fas fa-chevron-right arrow" style="margin-left: 8px;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                        <div class="form-item">
+                            <label style="width: 100px; white-space: nowrap;">接口地址</label>
+                            <input type="text" id="api-endpoint-input" placeholder="https://api.example.com">
+                        </div>
+                        <div class="form-item">
+                            <label style="width: 100px; white-space: nowrap;">API 密钥</label>
+                            <input type="password" id="api-key-input" placeholder="sk-...">
+                        </div>
+                    </div>
+
+                    <!-- Fetch Models Button (Grouped) -->
+                    <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                        <div class="settings-item fully-rounded-item" id="fetch-models-btn" style="justify-content: flex-start;">
+                            <div class="settings-icon action-icon-blue"><i class="fas fa-cloud-download-alt"></i></div>
+                            <div class="settings-text" style="color: var(--blue-color); font-weight: 500; text-align: left;">获取模型列表</div>
+                        </div>
+                    </div>
+
+                    <!-- Grouped Model & Temperature -->
+                    <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                        <div class="form-item">
+                            <label style="width: 100px; white-space: nowrap;">模型</label>
+                            <select id="api-model-select" style="flex: 1; border: none; text-align: right; direction: rtl; appearance: none; background: transparent; color: var(--blue-color); outline: none; font-size: 16px; min-width: 0;">
+                                <option value="" disabled selected>选择模型</option>
+                            </select>
+                            <i class="fas fa-chevron-right arrow" style="margin-left: 5px; color: #c7c7cc; pointer-events: none;"></i>
+                        </div>
+                        <div class="form-item">
+                            <label style="width: 100px; white-space: nowrap;">温度</label>
+                            <input type="number" id="api-temp-input" value="0.7" step="0.1" min="0" max="2" style="text-align: right; padding-right: 5px;">
+                        </div>
+                    </div>
+
+                    <!-- Grouped Preset Actions -->
+                    <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                        <div class="settings-item" id="save-preset-btn" style="justify-content: flex-start;">
+                            <div class="settings-icon action-icon-blue"><i class="fas fa-save"></i></div>
+                            <div class="settings-text" style="color: var(--blue-color); font-weight: 500; text-align: left;">存为预设</div>
+                        </div>
+                        <div class="settings-item" id="load-preset-btn" style="justify-content: flex-start; border-bottom: none;">
+                            <div class="settings-icon action-icon-blue"><i class="fas fa-list"></i></div>
+                            <div class="settings-text" style="color: var(--blue-color); font-weight: 500; text-align: left;">加载预设</div>
+                        </div>
+                    </div>
+
+                    <!-- Stream & Background Activity Group (仅在主API显示) -->
+                    <div id="main-api-controls">
+                        <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                            <div class="form-item" style="justify-content: space-between;">
+                                <label style="width: auto; white-space: nowrap; flex: 1; margin-right: 10px; color: #000; font-size: 16px;">流式传输</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="stream-response-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-item" style="justify-content: space-between; border-bottom: none;">
+                                <label style="width: auto; white-space: nowrap; flex: 1; margin-right: 10px; color: #000; font-size: 16px;">后台独立活动</label>
+                                <div style="display: flex; align-items: center; justify-content: flex-end;">
+                                    <input type="number" id="bg-activity-interval" class="small-rounded-input" value="60" min="1" style="width: 50px; margin-right: 10px; text-align: center;">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="bg-activity-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="sheet-action confirm-action" id="confirm-api-btn" style="margin-top: 20px; background-color: #1c1c1e; color: #fff;">保存设置</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Preset Name Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="save-preset-name-sheet" style="z-index: 550;">
+            <div class="bottom-sheet" style="height: auto; max-height: 50%;">
+                <div class="sheet-handle"></div>
+                <div class="sheet-title">预设名称</div>
+                <div class="form-group fully-rounded" style="margin: 20px 16px;">
+                    <div class="form-item">
+                        <label style="width: 60px;">名称</label>
+                        <input type="text" id="preset-name-input" placeholder="我的配置">
+                    </div>
+                </div>
+                <div class="sheet-action confirm-action" id="confirm-save-preset-btn" style="background-color: #1c1c1e; color: #fff;">保存</div>
+            </div>
+        </div>
+
+        <!-- Load Preset List Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="load-preset-list-sheet" style="z-index: 550;">
+            <div class="bottom-sheet" style="max-height: 80%;">
+                <div class="sheet-handle"></div>
+                <div class="sheet-title">选择预设</div>
+                <div class="account-list" id="preset-list" style="margin: 20px 16px; overflow-y: auto; overscroll-behavior: contain;">
+                    <!-- Presets injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Theme Config Bottom Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="theme-config-sheet" style="z-index: 500;">
+            <div class="bottom-sheet" style="max-height: 85%; height: 80%; display: flex; flex-direction: column;">
+                <div class="sheet-handle"></div>
+                <div class="sheet-title">主题美化</div>
+                
+                <div class="detail-sheet-content" style="padding-bottom: 30px; overflow-y: auto; flex: 1;">
+                    <!-- Background Customization -->
+                    <div class="settings-group fully-rounded" style="margin: 0 16px 20px;">
+                        <div class="settings-item" style="cursor: default; border-bottom: 1px solid var(--separator-color);">
+                            <div class="settings-text" style="font-weight: 600;">主界面背景</div>
+                        </div>
+                        <div class="form-item" style="display: none;">
+                            <label style="width: 80px;">链接</label>
+                            <input type="text" id="theme-bg-url-input" placeholder="https://example.com/bg.jpg">
+                        </div>
+                        <div style="display: flex; padding: 12px 16px; gap: 10px;">
+                            <div class="sheet-action" id="theme-bg-upload-btn" style="flex: 1; margin: 0; background: #f2f2f7; color: var(--blue-color); font-size: 14px; border-radius: 12px; height: 44px; display: flex; justify-content: center; align-items: center;">
+                                <i class="fas fa-image" style="margin-right: 6px;"></i> 上传背景
+                            </div>
+                            <div class="sheet-action" id="theme-bg-reset-btn" style="flex: 1; margin: 0; background: #ffebee; color: #ff3b30; font-size: 14px; border-radius: 12px; height: 44px; display: flex; justify-content: center; align-items: center;">
+                                <i class="fas fa-undo" style="margin-right: 6px;"></i> 重置背景
+                            </div>
+                            <input type="file" id="theme-bg-file-input" accept="image/*" style="display:none;">
+                        </div>
+                    </div>
+
+                    <div class="settings-group fully-rounded" style="margin: 0 16px 20px;">
+                        <div class="settings-item" id="theme-font-btn">
+                            <div class="settings-icon" style="background-color: #5856d6;"><i class="fas fa-font"></i></div>
+                            <div class="settings-text">字体</div>
+                            <i class="fas fa-chevron-right arrow"></i>
+                        </div>
+                        <div class="theme-font-group-body" style="padding: 12px 16px; background: #fff; font-size: 14px; color: #8e8e93;">
+                            <div class="theme-font-preview-caption" id="theme-font-current-label">当前字体：默认</div>
+                        </div>
+                    </div>
+
+                    <!-- App Icons List Customization -->
+                    <div class="settings-group fully-rounded" style="margin: 0 16px 20px;">
+                        <div class="settings-item" style="cursor: default; border-bottom: 1px solid var(--separator-color);">
+                            <div class="settings-text" style="font-weight: 600;">应用图标管理</div>
+                            <div id="theme-reset-all-icons-btn" style="font-size: 13px; color: #ff3b30; cursor: pointer; padding: 4px 8px; background: #ffebee; border-radius: 6px;">全部重置</div>
+                        </div>
+                        
+                        <!-- Dynamic App List -->
+                        <div id="theme-app-list">
+                            <!-- Will be injected by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden global file input for app icons -->
+                    <input type="file" id="theme-app-file-input" accept="image/*" style="display:none;">
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Font Setting Modal -->
+        <div class="theme-font-modal-overlay" id="theme-font-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 600; opacity: 0; transition: opacity 0.3s; justify-content: center; align-items: center;">
+            <div class="theme-font-modal-card" style="width: 90%; max-width: 400px; background: #f2f2f7; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; transform: scale(0.95); transition: transform 0.3s;">
+                <div class="theme-font-modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #fff; border-bottom: 1px solid #e5e5ea;">
+                    <div class="theme-font-modal-title" style="font-size: 18px; font-weight: 600;">字体</div>
+                    <div class="theme-font-modal-icon-actions" style="display: flex; gap: 10px;">
+                        <button class="theme-font-modal-icon-btn" id="theme-font-link-focus-btn" type="button" title="自定义链接字体" style="width: 32px; height: 32px; border-radius: 16px; border: none; background: #f2f2f7; color: #000; cursor: pointer;">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button class="theme-font-modal-icon-btn is-danger" id="theme-font-reset-btn" type="button" title="重置字体" style="width: 32px; height: 32px; border-radius: 16px; border: none; background: #ffebee; color: #ff3b30; cursor: pointer;">
+                            <i class="fas fa-rotate-left"></i>
+                        </button>
+                        <button class="theme-font-modal-icon-btn" id="theme-font-close-btn" type="button" title="关闭" style="width: 32px; height: 32px; border-radius: 16px; border: none; background: #e5e5ea; color: #8e8e93; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="theme-font-modal-body" style="padding: 16px; overflow-y: auto; flex: 1;">
+                    <div style="margin-bottom: 20px;">
+                        <div class="theme-font-section-title" style="font-size: 13px; color: #8e8e93; margin-bottom: 8px; padding-left: 4px;">预览</div>
+                        <div class="theme-font-preview-bubble" id="theme-font-modal-preview" style="background: #007aff; color: #fff; padding: 12px 16px; border-radius: 18px; border-bottom-right-radius: 4px; display: inline-block; max-width: 80%; word-break: break-word;">Aa 你好 Hello 123</div>
+                    </div>
+
+                    <div class="theme-font-subsection" style="margin-bottom: 20px;">
+                        <div class="theme-font-section-title" style="font-size: 13px; color: #8e8e93; margin-bottom: 8px; padding-left: 4px;">字体大小</div>
+                        <div class="theme-font-size-row" style="background: #fff; padding: 12px 16px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
+                            <input class="theme-font-size-slider" id="theme-font-size-slider" type="range" min="12" max="24" step="1" value="16" style="flex: 1;">
+                            <div class="theme-font-size-value" id="theme-font-size-value" style="font-size: 15px; color: #000; width: 40px; text-align: right;">16px</div>
+                        </div>
+                    </div>
+
+                    <div class="theme-font-subsection" style="margin-bottom: 20px;">
+                        <div class="theme-font-section-title" style="font-size: 13px; color: #8e8e93; margin-bottom: 8px; padding-left: 4px;">我的预设</div>
+                        <div class="theme-font-preset-list" id="theme-font-modal-user-preset-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                    </div>
+
+                    <div id="theme-font-custom-section">
+                        <div class="theme-font-section-title" style="font-size: 13px; color: #8e8e93; margin-bottom: 8px; padding-left: 4px;">自定义链接字体</div>
+                        <div class="form-group fully-rounded" style="margin: 0;">
+                            <div class="form-item">
+                                <label style="width: 80px;">字体名</label>
+                                <input type="text" id="theme-font-name-input" placeholder="例如：MyFont">
+                            </div>
+                            <div class="form-item" style="border-bottom: none;">
+                                <label style="width: 80px;">字体链接</label>
+                                <input type="text" id="theme-font-url-input" placeholder="https://example.com/font.woff2">
+                            </div>
+                        </div>
+
+                        <div class="sheet-action confirm-action" id="theme-font-apply-custom-btn" style="margin: 14px 0 0; background-color: #1c1c1e; color: #fff;">应用链接字体</div>
+                        <div class="sheet-action" id="theme-font-save-preset-btn" style="margin: 10px 0 0; background-color: #fff; color: #111111;">保存为预设</div>
                     </div>
                 </div>
             </div>

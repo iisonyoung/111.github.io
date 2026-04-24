@@ -28,6 +28,17 @@
     transform: translateX(0);
 }
 
+/* 隐藏全局滚动条 */
+::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+* {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
 /* Big Header for Main Settings */
 .big-header {
     padding: 50px 16px 10px; 
@@ -324,6 +335,288 @@
     color: #c7c7cc;
 }
 
+/* Specific inputs */
+.form-item input.small-rounded-input {
+    flex: none; 
+    border: 1px solid var(--separator-color, #e5e5ea);
+    border-radius: 8px;
+    padding: 4px;
+    font-size: 15px;
+    background: transparent;
+    color: #111;
+}
+
+.form-item input.small-rounded-input:focus {
+    border-color: var(--blue-color, #007aff);
+}
+
+/* API Model Picker */
+.api-model-card {
+    width: 100%;
+    min-height: 56px;
+    background: #fff;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: relative;
+    transition: background-color 0.15s ease;
+}
+
+.api-model-card:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 0;
+    height: 0.5px;
+    background-color: var(--separator-color);
+    z-index: 5;
+}
+
+.api-model-card:active {
+    background-color: #e5e5ea;
+}
+
+.api-model-card-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: #000;
+    word-break: break-all;
+    white-space: normal;
+}
+
+.api-model-card-action {
+    color: var(--blue-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+/* Segment Controls used in Settings/API */
+.pay-segment-control {
+    display: flex;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    padding: 3px;
+    width: 160px;
+    pointer-events: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.pay-segment-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 18px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.pay-segment-btn.active {
+    background-color: #000;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.theme-font-group-body {
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.theme-font-preview-bubble {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    background: #f2f2f7;
+    color: #111111;
+    font-size: 16px;
+    line-height: 1.4;
+    box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.04);
+    word-break: break-word;
+}
+
+.theme-font-preview-caption {
+    font-size: 12px;
+    color: #8e8e93;
+    line-height: 1.4;
+}
+
+.theme-font-preset-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.theme-font-pill {
+    border: 1px solid transparent;
+    background: #f2f2f7;
+    color: #111111;
+    border-radius: 999px;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.theme-font-pill-label {
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+}
+
+.theme-font-pill-delete {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-right: 4px;
+    border-radius: 999px;
+    opacity: 0.78;
+}
+
+.theme-font-pill-delete:hover {
+    background: rgba(17, 17, 17, 0.08);
+    opacity: 1;
+}
+
+.theme-font-pill.active {
+    background: #111111;
+    color: #ffffff;
+}
+
+.theme-font-pill.active .theme-font-pill-delete:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.theme-font-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10010;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.theme-font-modal-overlay.active {
+    display: flex;
+}
+
+.theme-font-modal-card {
+    width: min(360px, 100%);
+    max-height: min(78vh, 620px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+}
+
+.theme-font-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px 12px;
+}
+
+.theme-font-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111111;
+}
+
+.theme-font-modal-icon-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-font-modal-icon-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: #f2f2f7;
+    color: #111111;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.theme-font-modal-icon-btn.is-danger {
+    background: #ffebee;
+    color: #ff3b30;
+}
+
+.theme-font-modal-body {
+    padding: 0 20px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.theme-font-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #8e8e93;
+    margin-bottom: 10px;
+}
+
+.theme-font-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.theme-font-size-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.theme-font-size-slider {
+    flex: 1;
+    accent-color: #111111;
+}
+
+.theme-font-size-value {
+    min-width: 44px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    color: #8e8e93;
+}
+
 /* Bottom Sheet Styles */
 .bottom-sheet-overlay {
     position: absolute;
@@ -557,8 +850,8 @@
 .toggle-switch {
     position: relative;
     display: inline-block;
-    width: 40px;
-    height: 24px;
+    width: 51px;
+    height: 31px;
     flex-shrink: 0;
     box-sizing: border-box;
 }
@@ -578,14 +871,14 @@
     bottom: 0;
     background-color: #e9e9ea;
     transition: .4s;
-    border-radius: 24px;
+    border-radius: 31px;
 }
 
 .slider:before {
     position: absolute;
     content: "";
-    height: 20px;
-    width: 20px;
+    height: 27px;
+    width: 27px;
     left: 2px;
     bottom: 2px;
     background-color: white;
@@ -599,5 +892,5 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
-    transform: translateX(16px);
+    transform: translateX(20px);
 }
