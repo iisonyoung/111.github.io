@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>全屏Web App</title>
+    
+    <!-- iOS PWA 自动全屏功能核心配置 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="全屏App">
+    
+    <!-- Android PWA / 主题色 -->
+    <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- 禁止 Safari 自动识别电话号码、邮件等 -->
+    <meta name="format-detection" content="telephone=no, email=no, address=no">
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <h1>全屏模式体验</h1>
+        </header>
+        <main class="app-content">
+            <p>请在 iOS Safari 中点击底部中间的<strong>“分享”</strong>按钮，然后选择<strong>“添加到主屏幕”</strong>。</p>
+            <p>从主屏幕点击图标打开此应用，即可体验沉浸式全屏，顶部和底部地址栏将完全消失。</p>
+        </main>
+        <footer class="app-tabbar">
+            <div>首页</div>
+            <div>发现</div>
+            <div>我的</div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
