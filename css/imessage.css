@@ -1118,43 +1118,6 @@
     opacity: 0; /* Hide the original row while context menu is open, since we clone the bubble */
 }
 
-/* Overlay / Modal */
-.overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-    z-index: 1000;
-    display: none;
-    justify-content: center;
-    align-items: flex-end;
-}
-
-.overlay.active {
-    display: flex;
-}
-
-.bottom-sheet {
-    width: 100%;
-    background-color: #f2f2f7;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    max-height: 80%;
-    overflow-y: auto;
-    animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-}
-
 /* Styles for Add Friend Inputs (Commented to prevent global conflict) */
 /*
 .form-group {
