@@ -31,7 +31,7 @@
     display: flex;
     /* display: none; Removed to allow transition from .app-view */
     flex-direction: column;
-    z-index: auto; /* Removed hardcoded z-index to allow child modals to break out of stacking context */
+    z-index: 200;    
     padding-top: 0 !important; /* Override .app-view padding */
 }
 
@@ -610,7 +610,7 @@
     width: 100%;
     height: 100%;
     background-color: #ffffff;
-    z-index: auto; /* Removed hardcoded z-index so child overlays (e.g. chat settings) can cover external elements */
+    z-index: 50; /* Above lists but below overlays/modals */    
     min-height: 0;
     overflow: hidden;
 }
