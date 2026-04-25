@@ -33,6 +33,15 @@
     window.visualViewport?.addEventListener('resize', setRealVh);
     window.addEventListener('resize', setRealVh);
 
+    /* 键盘收起时强制页面滚动回顶部的修复 */
+    document.addEventListener('focusout', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+            setTimeout(function() {
+                window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+            }, 50);
+        }
+    });
+
     /* 判断当前是否已经在全屏模式运行（用户已添加到主屏幕并从中打开）*/
     function isStandalone() {
         return ('standalone' in window.navigator && window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;

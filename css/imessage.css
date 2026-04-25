@@ -1467,7 +1467,7 @@ input:checked + .slider:before {
     background: #ffffff;
     border-radius: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    z-index: 1050;
+    z-index: 1100;
     /* Remove display: none so JS can toggle flex safely */
     flex-direction: column;
     overflow: hidden;
@@ -1620,7 +1620,7 @@ input:checked + .slider:before {
 .chat-profile-panel-overlay {
     position: absolute;
     inset: 0;
-    z-index: 90;
+    z-index: 1100;
     display: none;
     align-items: flex-start;
     justify-content: center;
@@ -4200,4 +4200,3 @@ input:checked + .slider:before {
 .custom-minimal-tabs button.char-settings-tab.active::after {
     width: 80%;
 }
-
