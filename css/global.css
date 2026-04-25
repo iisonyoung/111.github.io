@@ -307,7 +307,7 @@ input, textarea, [contenteditable] {
     -webkit-backdrop-filter: blur(30px);
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
-    padding: 10px 16px 40px;
+    padding: 10px 16px 0; /* 移除写死的底部40px间距，让内容去避让安全区 */
     transform: translateY(100%);
     transition: transform 0.35s cubic-bezier(0.17, 0.84, 0.44, 1);
     max-height: 85%;
@@ -318,7 +318,7 @@ input, textarea, [contenteditable] {
 .detail-sheet-content {
     overflow-y: auto;
     flex: 1;
-    padding-bottom: 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)); /* 适配全面屏底部安全区 */
 }
 
 .bottom-sheet-overlay.active .bottom-sheet {
