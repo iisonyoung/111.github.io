@@ -56,3 +56,49 @@
 - `renderNativeModelSelect()` / `syncSelectValue()`：将 `fetchedModels` 模型列表写入原生的 `<select>` 组件。
 - `btnApiFetch` (获取模型列表)：连接服务器使用 `/v1/models` 获取可用模型。
 - `renderPresetList()`：生成右侧抽屉里的 API 配置历史预设列表并支持切换。
+
+---
+
+## 4. 世界书功能模块 (`u2phone/js/builtin_worldbook.js` & `u2phone/js/worldbook.js`)
+管理全局或特定场景下的设定、人设补充及背景信息（World Book），包含分组和词条管理，并将数据存入 localStorage。
+
+### 4.1 内置世界书数据 (`builtin_worldbook.js`)
+- `getBuiltInWorldBooks()`：返回项目默认包含的基础世界书及对应词条设定（例如“全局规则”、“预设人设”等）。
+
+### 4.2 世界书主逻辑 (`worldbook.js`)
+这部分管理世界书列表的数据增删改查、列表渲染以及相关的 UI 弹窗操作。
+
+- **核心状态**：
+  - `worldBooks`：存储所有世界书对象（包含 id, 名字, 分组 id, 词条数组及开启状态等）。
+  - `wbGroups`：存储世界书的分组。
+  - `currentWbTab`：当前在弹窗中浏览的标签页（全部、全局、局部）。
+
+- **数据持久化与初始化**：
+  - `loadWorldBooks()`：从 StorageManager 中读取 `worldBooks`，若不存在则导入内置的默认世界书。
+  - `loadWbGroups()` / `saveWbGroups()` / `saveWorldBooks()`：分组及世界书信息的存储写入。
+
+- **UI 渲染与交互**：
+  - `renderWorldBooks()` / `renderWbList(container, filterType)`：负责渲染世界书面板内的所有书籍和折叠分组（以文件夹/胶囊形态展示）。
+  - `renderWbGroups()`：渲染“添加新书”等操作时的分组选择列表。
+  - `renderWbEntries(entries)`：渲染每本书内包含的详细词条列表（规则关键词、系统提示深度、内容）。
+
+- **核心操作动作**：
+  - `toggleWbGlobal(id)` / `toggleWbLocal(id)`：切换世界书的全局与局部作用状态。
+  - `deleteWorldBook(id)` / `deleteWbGroup(id)`：删除指定的书本或分组，并带有安全确认。
+- `exportWorldBook(book)` / `importWorldBook(file)`：将单本世界书导出为 JSON 文件，或从本地加载解析 JSON 导入。
+
+---
+
+## 5. iMessage 模块 (`u2phone/js/imessage/`)
+管理 iMessage 应用的所有核心逻辑和界面交互。
+
+### 5.1 联系人与添加好友 (`3_contacts.js`)
+- `renderFriendsList()`: 渲染好友列表。
+- 处理“添加朋友”弹窗逻辑（`resetAddFriendForm`, `setFriendAvatar`），现已移除对旧版 `UI.inputs` 的依赖，改为纯原生 DOM 操作以解决报错导致点击无效的问题。
+
+### 5.2 聊天界面与上下文菜单 (`4_chat_main.js` 等)
+- 长按消息显示气泡菜单，支持复制、删除、编辑、翻译等功能。
+
+### 5.3 聊天与角色设置 (`5_settings.js`)
+- 管理单聊背景、气泡样式、角色人设编辑等。
+- 统一了“角色设定”、“记忆总览”等所有弹窗中多行文本域的全局输入框样式（`.tall-input` 与 `.tall-item`），去除了内联的宽高和边框设定，以保持 UI 风格整体一致。

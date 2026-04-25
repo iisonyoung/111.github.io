@@ -80,6 +80,19 @@
             apiPresets = StorageManager.load('u2_apiPresets', []);
             fetchedModels = StorageManager.load('u2_fetchedModels', []);
             
+            accounts = StorageManager.load('u2_accounts', []);
+            currentAccountId = StorageManager.load('u2_currentAccountId', null);
+            
+            if (currentAccountId) {
+                const acc = accounts.find(a => a.id === currentAccountId);
+                if (acc) {
+                    userState.name = acc.name || '';
+                    userState.phone = acc.phone || '';
+                    userState.persona = acc.persona || acc.signature || '';
+                    userState.avatarUrl = acc.avatarUrl || null;
+                }
+            }
+
             // Load Theme State
             const savedThemeState = StorageManager.load('u2_themeState', null);
             if (savedThemeState) {
@@ -209,12 +222,366 @@
             editBackBtn.addEventListener('click', () => closeView(UI.views.edit));
         }
 
+        // ==========================================
+        // IMAGE COMPRESSION & ACCOUNT MANAGEMENT
+        // ==========================================
+        function readImageAsCompressedDataUrl(file, options = {}) {
+            return new Promise((resolve, reject) => {
+                if (!file) {
+                    reject(new Error('No file selected'));
+                    return;
+                }
+
+                const {
+                    maxWidth = 1024,
+                    maxHeight = 1024,
+                    quality = 0.82,
+                    outputType = 'image/jpeg'
+                } = options;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const rawDataUrl = event?.target?.result;
+                    if (!rawDataUrl || typeof rawDataUrl !== 'string') {
+                        reject(new Error('Failed to read file'));
+                        return;
+                    }
+
+                    const image = new Image();
+                    image.onload = () => {
+                        let { width, height } = image;
+
+                        if (!width || !height) {
+                            resolve(rawDataUrl);
+                            return;
+                        }
+
+                        const widthRatio = maxWidth / width;
+                        const heightRatio = maxHeight / height;
+                        const scale = Math.min(1, widthRatio, heightRatio);
+
+                        const targetWidth = Math.max(1, Math.round(width * scale));
+                        const targetHeight = Math.max(1, Math.round(height * scale));
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            resolve(rawDataUrl);
+                            return;
+                        }
+
+                        ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+                        try {
+                            const compressedDataUrl = canvas.toDataURL(outputType, quality);
+                            resolve(compressedDataUrl || rawDataUrl);
+                        } catch (err) {
+                            console.warn('Failed to compress image, using original data url.', err);
+                            resolve(rawDataUrl);
+                        }
+                    };
+
+                    image.onerror = () => reject(new Error('Failed to load image for compression'));
+                    image.src = rawDataUrl;
+                };
+
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+        }
+        window.readImageAsCompressedDataUrl = readImageAsCompressedDataUrl;
+
+        // Main Edit Avatar Logic
+        const mainEditAvatarWrapper = document.getElementById('main-edit-avatar-wrapper');
+        const mainAvatarUpload = document.getElementById('main-avatar-upload');
+        if (mainEditAvatarWrapper && mainAvatarUpload) {
+            mainEditAvatarWrapper.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT') mainAvatarUpload.click();
+            });
+
+            mainAvatarUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        const url = await readImageAsCompressedDataUrl(file, {
+                            maxWidth: 768,
+                            maxHeight: 768,
+                            quality: 0.82
+                        });
+
+                        // Update user state
+                        userState.avatarUrl = url;
+                        
+                        // Update current account in accounts array
+                        const acc = accounts.find(a => a.id === currentAccountId);
+                        if (acc) {
+                            acc.avatarUrl = url;
+                        }
+                        
+                        saveGlobalData();
+                        // Sync the UI immediately
+                        syncUIs();
+                        showToast('头像已更新');
+                    } catch (err) {
+                        console.error('Failed to process avatar upload', err);
+                        showToast('头像处理失败');
+                    }
+                }
+                e.target.value = ''; // Reset
+            });
+        }
+
+        let isCreatingNewAccount = false;
+        let detailTempId = null;
+
         // Account Switcher
         const switchAccountBtn = document.getElementById('switch-account-btn');
         if (switchAccountBtn) {
             switchAccountBtn.addEventListener('click', () => {
-                // Mock rendering
+                renderAccountList();
                 openView(UI.overlays.accountSwitcher);
+            });
+        }
+        
+        // Account List Rendering
+        function renderAccountList() {
+            if(!UI.lists.accounts) return;
+            UI.lists.accounts.innerHTML = '';
+
+            accounts.forEach(acc => {
+                const card = document.createElement('div');
+                card.className = `account-card ${acc.id === currentAccountId ? 'selected' : ''}`;
+                if (acc.id === currentAccountId) {
+                    card.style.backgroundColor = '#e8f2ff'; // highlight current
+                }
+                
+                const avatarHtml = acc.avatarUrl ? `<img src="${acc.avatarUrl}" alt="">` : `<i class="fas fa-user"></i>`;
+                card.innerHTML = `
+                    <div class="account-content">
+                        <div class="account-avatar">${avatarHtml}</div>
+                        <div class="account-info">
+                            <div class="account-name">${acc.name}</div>
+                            <div class="account-detail">${acc.phone || 'No Phone'}</div>
+                        </div>
+                        <i class="fas fa-times delete-icon"></i>
+                    </div>
+                `;
+
+                // Click to Open Detail View & Set Active
+                card.querySelector('.account-content').addEventListener('click', (e) => {
+                    // If clicked on delete icon, do not open detail view
+                    if (e.target.classList.contains('delete-icon') || e.target.closest('.delete-icon')) return;
+
+                    currentAccountId = acc.id;
+                    if (window.setCurrentAccountId) window.setCurrentAccountId(acc.id);
+                    renderAccountList(); // Refresh highlighting
+                    
+                    isCreatingNewAccount = false;
+                    detailTempId = acc.id;
+                    UI.inputs.detailName.value = acc.name || '';
+                    UI.inputs.detailPhone.value = acc.phone || '';
+                    if(UI.inputs.detailSignature) UI.inputs.detailSignature.value = acc.signature || acc.persona || '';
+                    UI.inputs.detailPersona.value = acc.persona || '';
+                    setDetailAvatar(acc.avatarUrl);
+                    
+                    openView(UI.overlays.personaDetail);
+                });
+
+                // Delete Action
+                card.querySelector('.delete-icon').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete account "${acc.name}"?`)) {
+                        accounts = accounts.filter(a => a.id !== acc.id);
+                        if (currentAccountId === acc.id) {
+                            currentAccountId = accounts.length > 0 ? accounts[0].id : null;
+                            if (window.setCurrentAccountId) window.setCurrentAccountId(currentAccountId);
+                            const nextAccount = accounts.find(a => a.id === currentAccountId);
+                            userState.name = nextAccount?.name || '';
+                            userState.phone = nextAccount?.phone || '';
+                            userState.persona = nextAccount?.signature || nextAccount?.persona || '';
+                            userState.avatarUrl = nextAccount?.avatarUrl || null;
+                        }
+                        saveGlobalData();
+                        syncUIs();
+                        renderAccountList();
+                    }
+                });
+
+                UI.lists.accounts.appendChild(card);
+            });
+        }
+
+        // Add New Account
+        document.getElementById('add-account-btn')?.addEventListener('click', () => {
+            isCreatingNewAccount = true;
+            detailTempId = Date.now();
+            UI.inputs.detailName.value = '';
+            UI.inputs.detailPhone.value = '';
+            if(UI.inputs.detailSignature) UI.inputs.detailSignature.value = '';
+            UI.inputs.detailPersona.value = '';
+            setDetailAvatar(null);
+            openView(UI.overlays.personaDetail);
+        });
+
+        // Save Selected Account to Main State
+        document.getElementById('save-id-btn')?.addEventListener('click', () => {
+            const accToSync = accounts.find(a => a.id === currentAccountId);
+            if (accToSync) {
+                userState.name = accToSync.name;
+                userState.phone = accToSync.phone;
+                userState.persona = accToSync.signature || accToSync.persona; // Use signature for display
+                userState.avatarUrl = accToSync.avatarUrl;
+            } else {
+                userState.name = '';
+                userState.phone = '';
+                userState.persona = '';
+                userState.avatarUrl = null;
+            }
+            saveGlobalData();
+            syncUIs();
+            closeView(UI.overlays.accountSwitcher);
+        });
+
+        // Detail View Confirm
+        document.getElementById('confirm-sync-btn')?.addEventListener('click', () => {
+            const name = UI.inputs.detailName.value || 'New User';
+            const phone = UI.inputs.detailPhone.value;
+            const signature = UI.inputs.detailSignature ? UI.inputs.detailSignature.value : '';
+            const persona = UI.inputs.detailPersona.value;
+            const currentAvatarSrc = UI.inputs.detailAvatarImg.style.display === 'block' ? UI.inputs.detailAvatarImg.src : null;
+
+            if (isCreatingNewAccount) {
+                accounts.push({ id: detailTempId, name, phone, signature, persona, avatarUrl: currentAvatarSrc });
+                currentAccountId = detailTempId; 
+            } else {
+                const acc = accounts.find(a => a.id === detailTempId);
+                if (acc) {
+                    acc.name = name;
+                    acc.phone = phone;
+                    acc.signature = signature;
+                    acc.persona = persona;
+                    acc.avatarUrl = currentAvatarSrc;
+                }
+            }
+            isCreatingNewAccount = false;
+            saveGlobalData();
+            renderAccountList(); 
+            closeView(UI.overlays.personaDetail); 
+        });
+
+        // Avatar Upload Handler
+        const userDetailAvatarWrapper = document.getElementById('user-detail-avatar-wrapper');
+        if (userDetailAvatarWrapper) {
+            userDetailAvatarWrapper.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT') document.getElementById('detail-avatar-upload').click();
+            });
+        }
+
+        document.getElementById('detail-avatar-upload')?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    const url = await readImageAsCompressedDataUrl(file, {
+                        maxWidth: 768,
+                        maxHeight: 768,
+                        quality: 0.82
+                    });
+                    setDetailAvatar(url);
+                } catch (err) {
+                    console.error('Failed to process detail avatar upload', err);
+                    showToast('头像处理失败');
+                }
+            }
+        });
+
+        function setDetailAvatar(url) {
+            if (url) {
+                UI.inputs.detailAvatarImg.src = url;
+                UI.inputs.detailAvatarImg.style.display = 'block';
+                if(UI.inputs.detailAvatarIcon) UI.inputs.detailAvatarIcon.style.display = 'none';
+            } else {
+                UI.inputs.detailAvatarImg.style.display = 'none';
+                if(UI.inputs.detailAvatarIcon) UI.inputs.detailAvatarIcon.style.display = 'block';
+                UI.inputs.detailAvatarImg.src = '';
+            }
+        }
+        
+        // Make syncUIs globally aware of the loaded userState
+        const originalSyncUIs = window.syncUIs;
+        window.syncUIs = function() {
+            if (originalSyncUIs) {
+                // Call original logic if any
+                originalSyncUIs();
+            }
+            
+            // Sync Apple ID Settings View
+            const settingsName = document.getElementById('settings-name');
+            const settingsAvatarImg = document.getElementById('settings-avatar-img');
+            const settingsAvatarIcon = document.querySelector('.apple-id-avatar-small .fa-user');
+            
+            if (settingsName) {
+                settingsName.textContent = userState.name || '未登录 Apple ID';
+            }
+            
+            if (userState.avatarUrl) {
+                if (settingsAvatarImg) {
+                    settingsAvatarImg.src = userState.avatarUrl;
+                    settingsAvatarImg.style.display = 'block';
+                }
+                if (settingsAvatarIcon) settingsAvatarIcon.style.display = 'none';
+            } else {
+                if (settingsAvatarImg) settingsAvatarImg.style.display = 'none';
+                if (settingsAvatarIcon) settingsAvatarIcon.style.display = 'block';
+            }
+            
+            // Sync Edit View
+            const displayName = document.getElementById('display-name');
+            const displayPhone = document.getElementById('display-phone');
+            const displaySignature = document.getElementById('display-signature');
+            const editAvatarImg = document.getElementById('edit-avatar-img');
+            const editAvatarIcon = document.querySelector('#edit-avatar-preview .fa-user');
+            
+            if (displayName) displayName.textContent = userState.name || '未登录 Apple ID';
+            if (displayPhone) displayPhone.textContent = userState.phone || '暂无手机号';
+            if (displaySignature) displaySignature.textContent = userState.persona || '添加账号后可同步头像、名称与签名';
+            
+            if (userState.avatarUrl) {
+                if (editAvatarImg) {
+                    editAvatarImg.src = userState.avatarUrl;
+                    editAvatarImg.style.display = 'block';
+                }
+                if (editAvatarIcon) editAvatarIcon.style.display = 'none';
+            } else {
+                if (editAvatarImg) editAvatarImg.style.display = 'none';
+                if (editAvatarIcon) editAvatarIcon.style.display = 'block';
+            }
+        };
+
+        document.getElementById('close-account-sheet-btn')?.addEventListener('click', () => {
+            closeView(UI.overlays.accountSwitcher);
+        });
+
+        document.getElementById('close-persona-sheet-btn')?.addEventListener('click', () => {
+            closeView(UI.overlays.personaDetail);
+        });
+
+        // ==========================================
+        // World Book Configuration Logic
+        // ==========================================
+        const worldBookMainBtn = document.getElementById('world-book-main-btn');
+        if (worldBookMainBtn) {
+            worldBookMainBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.renderWorldBooks) {
+                    window.renderWorldBooks();
+                }
+                const wbView = document.getElementById('world-book-view');
+                if (wbView) {
+                    openView(wbView);
+                }
             });
         }
 
@@ -920,6 +1287,8 @@
                 StorageManager.save('u2_apiConfig', apiConfig);
                 StorageManager.save('u2_apiPresets', apiPresets);
                 StorageManager.save('u2_fetchedModels', fetchedModels);
+                StorageManager.save('u2_accounts', accounts);
+                StorageManager.save('u2_currentAccountId', currentAccountId);
             }
         }
 
