@@ -426,6 +426,70 @@ function createAttachmentSheet(page) {
             currentPayMode = 'transfer';
         };
 
+        const renderPayMethodSelection = (requiredAmount, callback) => {
+            const sheet = document.getElementById('pay-method-selection-sheet');
+            const listEl = document.getElementById('pay-method-selection-list');
+            if (!sheet || !listEl) return false;
+
+            const cards = typeof window.getPayCards === 'function' ? window.getPayCards() : [];
+            if (cards.length === 0) {
+                if (window.showToast) window.showToast('没有可用的银行卡');
+                return false;
+            }
+
+            listEl.innerHTML = '';
+            cards.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'pay-bank-card';
+                // Always white card for simplicity in picker
+                el.style.background = '#ffffff';
+                el.style.color = '#000000';
+                el.style.marginBottom = '10px';
+                el.style.cursor = 'pointer';
+                el.style.border = '1px solid #e5e5ea';
+                el.style.boxShadow = 'none';
+                el.style.height = 'auto';
+                el.style.padding = '12px 16px';
+                
+                const isInsufficient = c.balance < requiredAmount;
+                if (isInsufficient) {
+                    el.style.opacity = '0.5';
+                    el.style.cursor = 'not-allowed';
+                }
+                
+                el.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; flex-direction: column;">
+                            <div class="pay-bank-name" style="font-size: 15px; display: flex; align-items: center; gap: 8px;"><i class="${c.icon}"></i> ${c.name}</div>
+                            <div class="pay-bank-type" style="font-size: 11px; margin-top: 4px; opacity: 0.8;">${c.cardType} - ${c.number}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 15px; font-weight: 600;">¥${c.balance.toFixed(2)}</div>
+                            ${isInsufficient ? '<div style="font-size: 11px; color: #ff3b30; margin-top: 4px;">余额不足</div>' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                if (!isInsufficient) {
+                    el.addEventListener('click', () => {
+                        if (window.closeView) window.closeView(sheet);
+                        else sheet.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            callback(c.id);
+                        }, 300);
+                    });
+                }
+                
+                listEl.appendChild(el);
+            });
+
+            if (window.openView) window.openView(sheet);
+            else sheet.style.display = 'flex';
+
+            return true;
+        };
+
         const openPayTransferForm = () => {
             if (!payFormOverlay) return;
             const activeFriend = window.imData.currentActiveFriend;
@@ -498,57 +562,59 @@ function createAttachmentSheet(page) {
                     return;
                 }
 
-                const balance = typeof window.getPayBalance === 'function' ? window.getPayBalance() : 0;
-                if (totalAmount > balance) {
-                    if (window.showToast) window.showToast('余额不足');
-                    return;
-                }
-
-                const success = typeof window.addPayTransaction === 'function'
-                    ? window.addPayTransaction(totalAmount, `${description} · 群红包`, 'expense')
-                    : false;
-
-                if (!success) {
-                    if (window.showToast) window.showToast('红包发送失败');
-                    return;
-                }
-
-                const packetMsg = window.imChat.normalizeGroupRedPacketState({
-                    id: window.imChat.createMessageId('packet'),
-                    packetId: window.imChat.createMessageId('packet'),
-                    role: 'user',
-                    type: 'group_red_packet',
-                    totalAmount,
-                    packetCount,
-                    description,
-                    allocations,
-                    claimRecords: [],
-                    claimedMemberIds: [],
-                    content: `[群红包] ${description} ¥${Number(totalAmount).toFixed(2)}`,
-                    timestamp: now
-                }, activeFriend);
-
-                const saved = window.imApp.appendFriendMessage
-                    ? await window.imApp.appendFriendMessage(activeFriend.id, packetMsg, { silent: true })
-                    : await commitSheetFriendChange(activeFriend, (targetFriend) => {
-                        if (!targetFriend.messages) targetFriend.messages = [];
-                        targetFriend.messages.push(packetMsg);
-                    }, { silent: true });
-
-                if (!saved) {
-                    if (window.showToast) window.showToast('红包记录保存失败');
-                    return;
-                }
-
-                closeSheet();
-
-                if (activeContainer) {
-                    const appended = window.imChat.appendMessageToContainer
-                        ? window.imChat.appendMessageToContainer(activeFriend, activeContainer, packetMsg, { scroll: true })
+                // Call payment selection instead of immediate deduction
+                const didOpenSelection = renderPayMethodSelection(totalAmount, async (selectedCardId) => {
+                    const success = typeof window.addPayTransaction === 'function'
+                        ? window.addPayTransaction(totalAmount, `${description} · 群红包`, 'expense', selectedCardId)
                         : false;
-                    if (!appended && window.imChat.rerenderChatContainer) {
-                        window.imChat.rerenderChatContainer(activeFriend, activeContainer, { scroll: true });
+
+                    if (!success) {
+                        if (window.showToast) window.showToast('红包发送失败');
+                        return;
                     }
+
+                    const packetMsg = window.imChat.normalizeGroupRedPacketState({
+                        id: window.imChat.createMessageId('packet'),
+                        packetId: window.imChat.createMessageId('packet'),
+                        role: 'user',
+                        type: 'group_red_packet',
+                        totalAmount,
+                        packetCount,
+                        description,
+                        allocations,
+                        claimRecords: [],
+                        claimedMemberIds: [],
+                        content: `[群红包] ${description} ¥${Number(totalAmount).toFixed(2)}`,
+                        timestamp: now
+                    }, activeFriend);
+
+                    const saved = window.imApp.appendFriendMessage
+                        ? await window.imApp.appendFriendMessage(activeFriend.id, packetMsg, { silent: true })
+                        : await commitSheetFriendChange(activeFriend, (targetFriend) => {
+                            if (!targetFriend.messages) targetFriend.messages = [];
+                            targetFriend.messages.push(packetMsg);
+                        }, { silent: true });
+
+                    if (!saved) {
+                        if (window.showToast) window.showToast('红包记录保存失败');
+                        return;
+                    }
+
+                    closeSheet();
+
+                    if (activeContainer) {
+                        const appended = window.imChat.appendMessageToContainer
+                            ? window.imChat.appendMessageToContainer(activeFriend, activeContainer, packetMsg, { scroll: true })
+                            : false;
+                        if (!appended && window.imChat.rerenderChatContainer) {
+                            window.imChat.rerenderChatContainer(activeFriend, activeContainer, { scroll: true });
+                        }
+                    }
+                });
+
+                if (!didOpenSelection) {
+                    // Fallback to existing logic if selection fails to open (e.g., no cards)
+                    if (window.showToast) window.showToast('支付方式拉取失败');
                 }
                 return;
             }
@@ -558,12 +624,6 @@ function createAttachmentSheet(page) {
 
             if (!Number.isFinite(amount) || amount <= 0) {
                 if (window.showToast) window.showToast('金额无效');
-                return;
-            }
-
-            const balance = typeof window.getPayBalance === 'function' ? window.getPayBalance() : 0;
-            if (amount > balance) {
-                if (window.showToast) window.showToast('余额不足');
                 return;
             }
 
@@ -580,51 +640,57 @@ function createAttachmentSheet(page) {
                 targetName = selectedMember.nickname || selectedMember.realName || '群成员';
             }
 
-            const success = typeof window.addPayTransaction === 'function'
-                ? window.addPayTransaction(amount, `${description} · ${targetName}`, 'expense')
-                : false;
-
-            if (!success) {
-                if (window.showToast) window.showToast('转账失败');
-                return;
-            }
-
-            const payMsg = {
-                id: window.imChat.createMessageId('pay'),
-                role: 'user',
-                type: 'pay_transfer',
-                payKind: 'user_to_char',
-                amount,
-                description,
-                targetName,
-                targetMemberId: isGroupChat ? selectedRecipientId : null,
-                cardTitle: isGroupChat ? '群转账' : 'Pay 转账',
-                payStatus: 'completed',
-                content: `[用户转账] ${description} ¥${amount.toFixed(2)}`,
-                timestamp: now
-            };
-
-            const saved = window.imApp.appendFriendMessage
-                ? await window.imApp.appendFriendMessage(activeFriend.id, payMsg, { silent: true })
-                : await commitSheetFriendChange(activeFriend, (targetFriend) => {
-                    if (!targetFriend.messages) targetFriend.messages = [];
-                    targetFriend.messages.push(payMsg);
-                }, { silent: true });
-
-            if (!saved) {
-                if (window.showToast) window.showToast('转账记录保存失败');
-                return;
-            }
-
-            closeSheet();
-
-            if (activeContainer) {
-                const appended = window.imChat.appendMessageToContainer
-                    ? window.imChat.appendMessageToContainer(activeFriend, activeContainer, payMsg, { scroll: true })
+            const didOpenSelection = renderPayMethodSelection(amount, async (selectedCardId) => {
+                const success = typeof window.addPayTransaction === 'function'
+                    ? window.addPayTransaction(amount, `${description} · ${targetName}`, 'expense', selectedCardId)
                     : false;
-                if (!appended && window.imChat.rerenderChatContainer) {
-                    window.imChat.rerenderChatContainer(activeFriend, activeContainer, { scroll: true });
+
+                if (!success) {
+                    if (window.showToast) window.showToast('转账失败');
+                    return;
                 }
+
+                const payMsg = {
+                    id: window.imChat.createMessageId('pay'),
+                    role: 'user',
+                    type: 'pay_transfer',
+                    payKind: 'user_to_char',
+                    amount,
+                    description,
+                    targetName,
+                    targetMemberId: isGroupChat ? selectedRecipientId : null,
+                    cardTitle: isGroupChat ? '群转账' : 'Pay 转账',
+                    payStatus: 'completed',
+                    content: `[用户转账] ${description} ¥${amount.toFixed(2)}`,
+                    timestamp: now
+                };
+
+                const saved = window.imApp.appendFriendMessage
+                    ? await window.imApp.appendFriendMessage(activeFriend.id, payMsg, { silent: true })
+                    : await commitSheetFriendChange(activeFriend, (targetFriend) => {
+                        if (!targetFriend.messages) targetFriend.messages = [];
+                        targetFriend.messages.push(payMsg);
+                    }, { silent: true });
+
+                if (!saved) {
+                    if (window.showToast) window.showToast('转账记录保存失败');
+                    return;
+                }
+
+                closeSheet();
+
+                if (activeContainer) {
+                    const appended = window.imChat.appendMessageToContainer
+                        ? window.imChat.appendMessageToContainer(activeFriend, activeContainer, payMsg, { scroll: true })
+                        : false;
+                    if (!appended && window.imChat.rerenderChatContainer) {
+                        window.imChat.rerenderChatContainer(activeFriend, activeContainer, { scroll: true });
+                    }
+                }
+            });
+
+            if (!didOpenSelection) {
+                if (window.showToast) window.showToast('支付方式拉取失败');
             }
         };
 
