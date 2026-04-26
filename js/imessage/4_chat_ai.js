@@ -663,7 +663,11 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                             window.showToast(`【Loves】${friend.nickname || friend.realName || 'TA'} 刚刚更新了一条动态`);
                         }
                         
-                        if (window.saveIMData) window.saveIMData();
+                        if (window.lovesApp && window.lovesApp.persistFriendState) {
+                            window.lovesApp.persistFriendState(friend);
+                        } else if (window.imApp && window.imApp.commitScopedFriendChange) {
+                            window.imApp.commitScopedFriendChange(friend, () => {}, { silent: true });
+                        }
                         
                         if (window.lovesApp && window.lovesApp.currentFriend && String(window.lovesApp.currentFriend.id) === String(friend.id)) {
                             if (window.lovesApp.renderLovesMoments) {
@@ -703,7 +707,11 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                                 window.showToast(`【Loves日程】${friend.nickname || friend.realName || 'TA'} 添加了: ${scheduleData.title}`);
                             }
                             
-                            if (window.saveIMData) window.saveIMData();
+                            if (window.lovesApp && window.lovesApp.persistFriendState) {
+                                window.lovesApp.persistFriendState(friend);
+                            } else if (window.imApp && window.imApp.commitScopedFriendChange) {
+                                window.imApp.commitScopedFriendChange(friend, () => {}, { silent: true });
+                            }
                             
                             if (window.lovesApp && window.lovesApp.currentFriend && String(window.lovesApp.currentFriend.id) === String(friend.id)) {
                                 if (window.lovesApp.renderCalendar) {

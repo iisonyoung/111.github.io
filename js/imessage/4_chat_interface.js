@@ -656,6 +656,15 @@ async function openChatTab(friend) {
                 });
             }
 
+            if (input) {
+                input.addEventListener('focus', () => {
+                    const inputContainer = page.querySelector('.ins-chat-input-container');
+                    const attachmentSheet = document.getElementById('chat-attachment-sheet');
+                    if (inputContainer) inputContainer.classList.remove('push-up', 'push-up-more');
+                    if (attachmentSheet) attachmentSheet.style.display = 'none';
+                });
+            }
+
             // @ mention logic variables
             let mentionList = null;
             let currentMentionQuery = '';

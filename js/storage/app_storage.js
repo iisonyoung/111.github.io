@@ -43,6 +43,42 @@
         return JSON.parse(JSON.stringify(value));
     }
 
+    function isDomNode(value) {
+        return !!(
+            value &&
+            typeof value === 'object' &&
+            typeof Node !== 'undefined' &&
+            value instanceof Node
+        );
+    }
+
+    function sanitizePersistentValue(value, seen = new WeakSet()) {
+        if (value == null) return value;
+        if (typeof value === 'function' || typeof value === 'symbol') return undefined;
+        if (typeof value !== 'object') return value;
+        if (isDomNode(value)) return undefined;
+        if (value instanceof Date) return value.toISOString();
+        if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
+        if (typeof File !== 'undefined' && value instanceof File) return value;
+
+        if (seen.has(value)) return undefined;
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            return value
+                .map((item) => sanitizePersistentValue(item, seen))
+                .filter((item) => item !== undefined);
+        }
+
+        const result = {};
+        Object.keys(value).forEach((key) => {
+            if (key.charAt(0) === '_') return;
+            const sanitized = sanitizePersistentValue(value[key], seen);
+            if (sanitized !== undefined) result[key] = sanitized;
+        });
+        return result;
+    }
+
     function touchRuntimeBlobUrl(assetId) {
         if (!assetId) return;
         runtimeBlobUrlAccess.set(assetId, Date.now());
@@ -696,7 +732,7 @@
         meta.lastMessageTimestamp = messageSummary.lastMessageTimestamp;
         meta.messageCount = messageSummary.messageCount;
 
-        return putRecord(STORES.imFriends, meta);
+        return putRecord(STORES.imFriends, sanitizePersistentValue(meta));
     }
 
     async function saveFriendMessage(friendId, message, order = 0) {

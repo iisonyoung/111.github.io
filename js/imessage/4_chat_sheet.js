@@ -35,7 +35,7 @@ function createAttachmentSheet(page) {
         window.imData.attachmentSheet = attachmentSheet;
         attachmentSheet.style.position = 'absolute';
         attachmentSheet.style.inset = '0';
-        attachmentSheet.style.zIndex = '1000';
+        attachmentSheet.style.zIndex = '25';
         attachmentSheet.style.display = 'none';
         attachmentSheet.style.flexDirection = 'column';
         attachmentSheet.style.justifyContent = 'flex-end';
@@ -521,6 +521,9 @@ function createAttachmentSheet(page) {
         };
 
         const closeSheet = () => {
+            const currentPage = attachmentSheet.parentElement || page;
+            const inputContainer = currentPage.querySelector('.ins-chat-input-container');
+            if (inputContainer) inputContainer.classList.remove('push-up', 'push-up-more');
             closePayTransferForm();
             overlay.style.opacity = '0';
             content.style.transform = 'translateY(100%)';
@@ -893,6 +896,11 @@ function openAttachmentSheet() {
 
         // Reset the sheet instance entirely just in case DOM was manipulated or destroyed
         const sheet = window.imChat.createAttachmentSheet(page);
+        const inputContainer = page.querySelector('.ins-chat-input-container');
+        if (inputContainer) {
+            inputContainer.classList.remove('push-up');
+            inputContainer.classList.add('push-up-more');
+        }
         sheet.style.display = 'flex';
         // force reflow
         sheet.offsetHeight;

@@ -28,69 +28,13 @@
         document.documentElement.style.setProperty('--real-vh', `${vh}px`);
     }
 
-    function resetHorizontalViewportOffset(options = {}) {
-        const { clearTransform = true } = options;
-
-        try {
-            if (window.scrollX !== 0) window.scrollTo({ top: window.scrollY || 0, left: 0, behavior: 'auto' });
-        } catch (e) {}
-
-        try {
-            document.documentElement.scrollLeft = 0;
-            document.body.scrollLeft = 0;
-        } catch (e) {}
-
-        const appEl = document.getElementById('app');
-        if (appEl && clearTransform) appEl.style.transform = '';
-    }
-
-    function isKeyboardInput(target) {
-        if (!target) return false;
-        return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-    }
-
-    function stabilizeKeyboardViewport(target = document.activeElement) {
-        const appEl = document.getElementById('app');
-        const offsetLeft = Math.round(window.visualViewport?.offsetLeft || 0);
-
-        if (appEl) appEl.style.transform = offsetLeft ? `translateX(${-offsetLeft}px)` : '';
-        resetHorizontalViewportOffset({ clearTransform: false });
-
-        if (isKeyboardInput(target) && typeof target.scrollIntoView === 'function') {
-            setTimeout(() => {
-                try {
-                    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-                    resetHorizontalViewportOffset({ clearTransform: false });
-                } catch (e) {}
-            }, 80);
-        }
-    }
-    
     // 初始化和监听窗口大小变化
     setRealVh();
-    window.visualViewport?.addEventListener('resize', () => {
-        setRealVh();
-        stabilizeKeyboardViewport();
-    });
-    window.visualViewport?.addEventListener('scroll', () => {
-        stabilizeKeyboardViewport();
-    });
+    window.visualViewport?.addEventListener('resize', setRealVh);
+    window.visualViewport?.addEventListener('scroll', setRealVh);
     window.addEventListener('resize', setRealVh);
 
-    document.addEventListener('focusin', function(e) {
-        if (isKeyboardInput(e.target)) stabilizeKeyboardViewport(e.target);
-    });
-
     /* 键盘收起时强制页面滚动回顶部的修复 */
-    document.addEventListener('focusout', function(e) {
-        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-            setTimeout(function() {
-                resetHorizontalViewportOffset();
-                window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-            }, 50);
-        }
-    });
-
     /* 判断当前是否已经在全屏模式运行（用户已添加到主屏幕并从中打开）*/
     function isStandalone() {
         return ('standalone' in window.navigator && window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;

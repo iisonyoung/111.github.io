@@ -21,7 +21,7 @@
 /* App Container */
 #imessage-view {
     --im-bottom-nav-space: 72px;
-    --im-chat-input-space: 88px;
+    --im-chat-input-space: 14px;
     position: absolute;
     top: 0;
     left: 0;
@@ -701,7 +701,7 @@
 
 .ins-chat-messages {
     flex: 1;
-    height: 100%;
+    height: auto;
     overflow-y: auto;
     box-sizing: border-box;
     padding: calc(96px + env(safe-area-inset-top, 0px)) 16px var(--im-chat-input-space);
@@ -926,16 +926,23 @@
 
 /* Input Area */
 .ins-chat-input-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     width: auto;
     padding: 10px 16px 8px;
-    padding-bottom: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
     background-color: #ffffff; /* Solid background to match sticky header */
     border-top: none;
     z-index: 30;
+    flex-shrink: 0;
+    transition: margin-bottom 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ins-chat-input-container.push-up {
+    margin-bottom: 350px;
+}
+
+.ins-chat-input-container.push-up-more {
+    margin-bottom: 300px;
 }
 
 /* @ Mention List Box */

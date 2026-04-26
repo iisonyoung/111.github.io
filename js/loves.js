@@ -8,6 +8,29 @@ window.lovesApp = {
     currentImsgAccount: 'main',
     currentFriend: null,
 
+    persistFriendState: async function(friend = this.currentFriend, options = {}) {
+        if (!friend) return false;
+
+        if (window.imApp && typeof window.imApp.commitScopedFriendChange === 'function') {
+            const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                if (this.currentFriend && String(this.currentFriend.id) === String(targetFriend.id)) {
+                    this.currentFriend = targetFriend;
+                }
+            }, {
+                silent: options.silent !== false,
+                syncActive: true
+            });
+            return !!saved;
+        }
+
+        if (typeof window.saveGlobalData === 'function') {
+            await window.saveGlobalData();
+            return true;
+        }
+
+        return false;
+    },
+
     bindLongPress: function(element, callback) {
         let pressTimer = null;
         let startX = 0, startY = 0;
@@ -58,8 +81,8 @@ window.lovesApp = {
     showDeleteConfirm: function(text, onConfirm) {
         const result = window.confirm('确定要删除 "' + text + '" 吗？');
         if (result) {
-            onConfirm();
-            if (window.saveIMData) window.saveIMData();
+            Promise.resolve(onConfirm()).then(() => {
+            });
             if (window.showToast) window.showToast('已删除');
         }
     },
@@ -139,7 +162,7 @@ window.lovesApp = {
                                     timestamp: Date.now()
                                 });
                                 
-                                if (window.saveIMData) window.saveIMData();
+                                this.persistFriendState();
                                 if (window.showToast) window.showToast('日程已添加');
                                 if (window.closeView) window.closeView(scheduleView);
                                 
@@ -303,7 +326,7 @@ window.lovesApp = {
                     const originalIdx = this.currentFriend.lovesData.schedules.findIndex(os => os.id === s.id);
                     if (originalIdx !== -1) {
                         this.currentFriend.lovesData.schedules.splice(originalIdx, 1);
-                        if (window.saveIMData) window.saveIMData();
+                        this.persistFriendState();
                         this.renderCalendar();
                     }
                 }
@@ -382,7 +405,7 @@ window.lovesApp = {
                 
                 this.currentFriend.lovesData.moments.unshift(moment);
                 
-                if (window.saveIMData) window.saveIMData();
+                this.persistFriendState();
                 if (window.showToast) window.showToast('发布成功');
                 if (window.closeView) window.closeView(publishView);
                 
@@ -552,7 +575,7 @@ window.lovesApp = {
         
         this.showDeleteConfirm('这条动态', () => {
             this.currentFriend.lovesData.moments.splice(idx, 1);
-            if (window.saveIMData) window.saveIMData();
+            this.persistFriendState();
             this.renderLovesMoments();
         });
     },
@@ -564,7 +587,7 @@ window.lovesApp = {
         
         this.showDeleteConfirm('这条评论', () => {
             m.comments.splice(cIdx, 1);
-            if (window.saveIMData) window.saveIMData();
+            this.persistFriendState();
             this.renderLovesMoments();
         });
     },
@@ -584,7 +607,7 @@ window.lovesApp = {
                 isChar: false,
                 timestamp: Date.now()
             });
-            if (window.saveIMData) window.saveIMData();
+            this.persistFriendState();
             this.renderLovesMoments();
         }
     },
@@ -615,8 +638,8 @@ window.lovesApp = {
         const charPersona = this.currentFriend.persona || '普通角色';
         
         let chatContext = '';
-        if (window.imData && window.imData.messages && window.imData.messages[this.currentFriend.id]) {
-            const msgs = window.imData.messages[this.currentFriend.id].slice(-10);
+        if (this.currentFriend && Array.isArray(this.currentFriend.messages)) {
+            const msgs = this.currentFriend.messages.slice(-10);
             if (msgs.length > 0) {
                 chatContext = msgs.map(msg => {
                     const sender = msg.sender === 'me' ? 'User' : 'Char';
@@ -683,7 +706,7 @@ window.lovesApp = {
                     parsedComments.forEach(text => {
                         m.comments.push({ text: text, isChar: true, timestamp: Date.now() });
                     });
-                    if (window.saveIMData) window.saveIMData();
+                    this.persistFriendState();
                     if (window.showToast) window.showToast('评论成功');
                     this.renderLovesMoments();
                 } else {
@@ -706,7 +729,7 @@ window.lovesApp = {
         m.isLiked = !m.isLiked;
         m.likes = (m.likes || 0) + (m.isLiked ? 1 : -1);
         if (m.likes < 0) m.likes = 0;
-        if (window.saveIMData) window.saveIMData();
+        this.persistFriendState();
         this.renderLovesMoments();
     },
 
@@ -724,12 +747,11 @@ window.lovesApp = {
     
     scanForAcceptance: function() {
         const friends = window.imData?.friends || [];
-        const messagesObj = window.imData?.messages || {};
         let updated = false;
 
         friends.forEach(friend => {
             if (friend.pendingLovesInvite && !friend.hasLovesSpace) {
-                const msgs = messagesObj[friend.id] || [];
+                const msgs = Array.isArray(friend.messages) ? friend.messages : [];
                 for (let i = msgs.length - 1; i >= 0; i--) {
                     const msg = msgs[i];
                     if (msg.sender !== 'me' && msg.text && msg.text.includes('[ACCEPT_INVITE]')) {
@@ -769,12 +791,14 @@ window.lovesApp = {
             }
         });
 
-        if (updated && window.saveIMData) {
-            window.saveIMData();
+        if (updated) {
+            friends.forEach(friend => {
+                if (friend.hasLovesSpace) this.persistFriendState(friend);
+            });
         }
     },
 
-    handleInviteAccepted: function(friend) {
+    handleInviteAccepted: async function(friend) {
         if (!friend) return;
         
         friend.hasLovesSpace = true;
@@ -797,14 +821,12 @@ window.lovesApp = {
         };
         
         if (window.imApp && window.imApp.appendFriendMessage) {
-            window.imApp.appendFriendMessage(friend.id, acceptMsg, { silent: true });
+            await window.imApp.appendFriendMessage(friend.id, acceptMsg, { silent: true });
         } else if (friend.messages && Array.isArray(friend.messages)) {
             friend.messages.push(acceptMsg);
-        } else if (window.imData && window.imData.messages && window.imData.messages[friend.id]) {
-            window.imData.messages[friend.id].push(acceptMsg);
         }
         
-        if (window.saveIMData) window.saveIMData();
+        await this.persistFriendState(friend);
         
         // 尝试立即渲染到聊天面板中
         const pageId = `chat-interface-${friend.id}`;
@@ -890,8 +912,6 @@ window.lovesApp = {
             }
             
             // 为了让更新按钮状态更方便，挂载一个引用
-            friend._lovesActionBtn = actionBtn;
-            
             item.appendChild(avatarWrapper);
             item.appendChild(nameEl);
             item.appendChild(actionBtn);
@@ -952,14 +972,7 @@ window.lovesApp = {
         // do nothing
     },
     
-    sendInviteCard: function(friend) {
-        if (!window.imData.messages) {
-            window.imData.messages = {};
-        }
-        if (!window.imData.messages[friend.id]) {
-            window.imData.messages[friend.id] = [];
-        }
-        
+    sendInviteCard: async function(friend) {
         const inviteMsg = {
             id: window.imChat && window.imChat.createMessageId ? window.imChat.createMessageId('msg') : 'msg_' + Date.now(),
             sender: 'me',
@@ -979,34 +992,27 @@ window.lovesApp = {
         };
         
         // 尝试通过 imApp 接口追加消息，如果不存在则直接 push
+        let saved = true;
         if (window.imApp && window.imApp.appendFriendMessage) {
-            window.imApp.appendFriendMessage(friend.id, inviteMsg, { silent: false });
+            saved = await window.imApp.appendFriendMessage(friend.id, inviteMsg, { silent: false });
         } else if (friend.messages && Array.isArray(friend.messages)) {
              friend.messages.push(inviteMsg);
         } else {
-             window.imData.messages[friend.id].push(inviteMsg);
+             friend.messages = [inviteMsg];
         }
+        if (!saved) return;
         
         friend.pendingLovesInvite = true;
         // 注意：这里移除了强制设置 friend.hasLovesSpace = true，改由AI回复后更新
 
-        if (window.saveIMData) {
-            window.saveIMData();
-        }
+        await this.persistFriendState(friend);
         
         if (window.showToast) {
             window.showToast('已向 ' + (friend.nickname || friend.realname) + ' 发送邀请！');
         }
         
         // 动态更新列表中的按钮状态（仅模拟，实际上需要对方接受）
-        if (friend._lovesActionBtn) {
-            friend._lovesActionBtn.textContent = '进入';
-            friend._lovesActionBtn.className = 'loves-friend-story-action loves-friend-action-enter';
-            friend._lovesActionBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.enterLovesSpace(friend);
-            };
-        }
+        this.renderTopFriends();
     },
     
     enterLovesSpace: function(friend) {
@@ -1257,7 +1263,7 @@ window.lovesApp = {
                 }
                 
                 if (cleaned) {
-                    if (window.saveIMData) window.saveIMData();
+                    this.persistFriendState(friend);
                     if (window.showToast) window.showToast('已清理旧数据，请重新打开应用查看');
                 } else {
                     if (window.showToast) window.showToast('当前没有多余的旧数据需要清理');
@@ -1279,7 +1285,7 @@ window.lovesApp = {
                 friend.safariData = null;
                 friend.filesData = null;
                 
-                if (window.saveIMData) window.saveIMData();
+                this.persistFriendState(friend);
                 if (window.showToast) window.showToast('所有生成数据已清空');
             };
         }
@@ -1315,8 +1321,8 @@ window.lovesApp = {
                 
                 // 收集聊天上下文
                 let chatContext = '';
-                if (window.imData && window.imData.messages && window.imData.messages[friend.id]) {
-                    const msgs = window.imData.messages[friend.id].slice(-20); // 取最近20条
+                if (Array.isArray(friend.messages)) {
+                    const msgs = friend.messages.slice(-20); // 取最近20条
                     if (msgs.length > 0) {
                         chatContext = msgs.map(m => {
                             const sender = m.sender === 'me' ? 'User' : 'Char';
@@ -1564,7 +1570,7 @@ window.lovesApp = {
                             }
                         }
                         
-                        if (window.saveIMData) window.saveIMData();
+                        this.persistFriendState(friend);
                         
                         if (window.showToast) window.showToast('生成成功！请返回桌面重新进入 App 查看');
                         
@@ -1599,7 +1605,7 @@ window.lovesApp = {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         friend.phoneBg = ev.target.result;
-                        if (window.saveIMData) window.saveIMData();
+                        this.persistFriendState(friend);
                         phoneView.style.backgroundImage = `url(${friend.phoneBg})`;
                         if (window.showToast) window.showToast('已更换 TA 的主屏幕背景');
                         if (window.closeView) window.closeView(settingsSheet);
