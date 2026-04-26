@@ -12,6 +12,81 @@
         avatarUrl: null
     };
 
+    function clonePlainData(value) {
+        if (typeof structuredClone === 'function') return structuredClone(value);
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function syncUserStateFromCurrentAccount() {
+        const acc = accounts.find(a => String(a.id) === String(currentAccountId));
+
+        if (acc) {
+            userState.name = acc.name || '';
+            userState.phone = acc.phone || '';
+            userState.persona = acc.persona || acc.signature || '';
+            userState.signature = acc.signature || '';
+            userState.avatarUrl = acc.avatarUrl || null;
+        } else {
+            userState.name = '';
+            userState.phone = '';
+            userState.persona = '';
+            userState.signature = '';
+            userState.avatarUrl = null;
+        }
+
+        window.userState = userState;
+        return userState;
+    }
+
+    function exposeAccountGlobals() {
+        window.getAccounts = () => accounts;
+        window.getCurrentAccountId = () => currentAccountId;
+        window.setCurrentAccountId = (id) => {
+            currentAccountId = id;
+            syncUserStateFromCurrentAccount();
+            persistSettingsData();
+            return currentAccountId;
+        };
+    }
+
+    function persistSettingsData() {
+        syncUserStateFromCurrentAccount();
+        if (window.StorageManager) {
+            StorageManager.save('u2_userState', userState);
+            StorageManager.save('u2_apiConfig', apiConfig);
+            StorageManager.save('u2_apiPresets', apiPresets);
+            StorageManager.save('u2_fetchedModels', fetchedModels);
+            StorageManager.save('u2_accounts', accounts);
+            StorageManager.save('u2_currentAccountId', currentAccountId);
+            StorageManager.save('u2_themeState', themeState);
+        }
+
+        if (window.appStorage?.loadGlobalData && window.appStorage?.saveGlobalData) {
+            window.appStorage.loadGlobalData()
+                .then((existing) => {
+                    const safeExisting = existing && typeof existing === 'object' ? existing : {};
+                    return window.appStorage.saveGlobalData({
+                        ...safeExisting,
+                        userState: clonePlainData(userState),
+                        accounts: clonePlainData(accounts),
+                        currentAccountId,
+                        apiConfig: clonePlainData(apiConfig),
+                        apiPresets: clonePlainData(apiPresets),
+                        fetchedModels: clonePlainData(fetchedModels),
+                        themeState: clonePlainData(themeState),
+                        appState: typeof window.getAllAppState === 'function'
+                            ? clonePlainData(window.getAllAppState())
+                            : safeExisting.appState
+                    });
+                })
+                .catch((error) => {
+                    console.warn('Failed to persist settings to appStorage:', error);
+                });
+        }
+    }
+
+    exposeAccountGlobals();
+
     // ==========================================
     // API Configuration State
     // ==========================================
@@ -82,15 +157,13 @@
             
             accounts = StorageManager.load('u2_accounts', []);
             currentAccountId = StorageManager.load('u2_currentAccountId', null);
+            const savedUserState = StorageManager.load('u2_userState', null);
+            if (savedUserState && typeof savedUserState === 'object') {
+                userState = { ...userState, ...savedUserState };
+            }
             
             if (currentAccountId) {
-                const acc = accounts.find(a => a.id === currentAccountId);
-                if (acc) {
-                    userState.name = acc.name || '';
-                    userState.phone = acc.phone || '';
-                    userState.persona = acc.persona || acc.signature || '';
-                    userState.avatarUrl = acc.avatarUrl || null;
-                }
+                syncUserStateFromCurrentAccount();
             }
 
             // Load Theme State
@@ -119,6 +192,7 @@
         // Expose globally for other modules if needed
         window.apiConfig = apiConfig;
         window.userState = userState;
+        exposeAccountGlobals();
 
         // ==========================================
         // UI DOM Elements Mapping
@@ -468,9 +542,14 @@
                 }
             }
             isCreatingNewAccount = false;
+            if (String(currentAccountId) === String(detailTempId)) {
+                syncUserStateFromCurrentAccount();
+            }
             saveGlobalData();
+            syncUIs();
             renderAccountList(); 
             closeView(UI.overlays.personaDetail); 
+            showToast('资料已保存');
         });
 
         // Avatar Upload Handler
@@ -1284,13 +1363,7 @@
         // API CONFIGURATION LOGIC
         // ==========================================
         function saveGlobalData() {
-            if (window.StorageManager) {
-                StorageManager.save('u2_apiConfig', apiConfig);
-                StorageManager.save('u2_apiPresets', apiPresets);
-                StorageManager.save('u2_fetchedModels', fetchedModels);
-                StorageManager.save('u2_accounts', accounts);
-                StorageManager.save('u2_currentAccountId', currentAccountId);
-            }
+            persistSettingsData();
         }
 
         function switchApiTab(tabName) {
