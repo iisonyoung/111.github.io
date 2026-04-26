@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="css/loves.css">
     <!-- App Styles -->
     <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/youtube.css">
 </head>
 <body>
     <div id="app">
@@ -259,6 +260,815 @@
         
 
         
+
+
+
+        <div class="app-view youtube-view" id="youtube-view">
+                        <!-- Header -->
+                        <div class="yt-header">
+                            <div class="yt-header-left" id="yt-back-btn">
+                                <i class="fab fa-youtube yt-logo-icon"></i>
+                                <span class="yt-logo-text">YouTube</span>
+                            </div>
+                            <div class="yt-header-right" style="cursor: pointer;">
+                                <i class="fas fa-search yt-icon-btn" id="yt-main-search-btn"></i>
+                                <i class="fas fa-cog yt-icon-btn" id="yt-main-settings-btn"></i>
+                            </div>
+                        </div>
+                        <!-- ... YouTube Content ... -->
+                        <!-- (I will put the rest of the file content here as retrieved from the read_file result in the error message) -->
+                        <!-- Since the context window is limited and I cannot invent content, I must rely on the previous full file content provided in the error message. -->
+                        <!-- I will paste the entire file content from the error message below, with my specific modifications applied. -->
+                        
+                        <!-- Main Content Area -->
+                        <div class="yt-main-content">
+                            <!-- Home Tab Content -->
+                            <div id="yt-home-tab" class="yt-tab-content active">
+                                <!-- Subscriptions Bar -->
+                                <div class="yt-subscriptions-wrapper">
+                                    <div class="yt-subscriptions-scroll" id="yt-subs-list">
+                                        <!-- Subscription items will be injected here -->
+                                    </div>
+                                    <div class="yt-sub-all-btn">全部</div>
+                                </div>
+        
+                                <!-- Filter Bubbles -->
+                                <div class="yt-filters-bar">
+                                    <div class="yt-filter-bubble active">全部</div>
+                                    <div class="yt-filter-bubble">正在直播</div>
+                                </div>
+        
+                                <!-- Live Content -->
+                                <div class="yt-live-section" id="yt-live-section">
+                                    <!-- Live items injected here -->
+                                </div>
+                                
+                                <!-- Empty State for Live Content -->
+                                <div class="yt-empty-state" id="yt-empty-state" style="display: none;">
+                                    <i class="fas fa-video-slash"></i>
+                                    <p>暂无订阅频道的直播内容</p>
+                                </div>
+                            </div>
+        
+                            <!-- Trending (榜单) Tab Content -->
+                            <div id="yt-trending-tab" class="yt-tab-content">
+                                <div class="yt-trending-header" style="padding: 15px 16px 5px; display: flex; justify-content: space-between; align-items: center;">
+                                    <h2 style="font-size: 22px; font-weight: 700; margin: 0;">排行榜</h2>
+                                    <div id="yt-trending-refresh-btn" style="background: #f2f2f2; width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                        <i class="fas fa-magic" style="color: #000; font-size: 14px;"></i>
+                                    </div>
+                                </div>
+                                
+                                <!-- 榜单分类切换 -->
+                                <div class="yt-filters-bar" style="padding-top: 5px; margin-bottom: 5px;">
+                                    <div class="yt-filter-bubble active" id="yt-trend-filter-live">直播榜</div>
+                                    <div class="yt-filter-bubble" id="yt-trend-filter-sub">订阅榜</div>
+                                </div>
+        
+                                <div id="yt-trending-list" style="padding: 0 16px; padding-bottom: 80px; display: flex; flex-direction: column; gap: 15px;">
+                                    <div style="text-align: center; color: #8e8e93; margin-top: 40px;">点击右上角魔法棒生成最新榜单</div>
+                                </div>
+                            </div>
+        
+                            <!-- Profile Tab Content -->
+                            <div id="yt-profile-tab" class="yt-tab-content">
+                                <div class="yt-profile-header-bg"></div>
+                                <div class="yt-profile-info">
+                                    <div class="yt-profile-avatar">
+                                        <i class="fas fa-user"></i>
+                                        <img src="" alt="" style="display: none;" id="yt-profile-avatar-img">
+                                    </div>
+                                    <h2 class="yt-profile-name" id="yt-profile-name">User Name</h2>
+                                    <p class="yt-profile-handle" id="yt-profile-handle">@username</p>
+                                    
+                                    <!-- 新增：订阅者和视频数量统计 -->
+                                    <div class="yt-profile-stats">
+                                        <span id="yt-profile-subs">0 订阅者</span>
+                                        <span class="yt-stat-separator">•</span>
+                                        <span id="yt-profile-videos">0 视频</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="yt-profile-actions">
+                                    <div class="yt-profile-action-btn" id="yt-data-center-btn">
+                                        <i class="fas fa-chart-bar"></i> 数据中心
+                                    </div>
+                                    <div class="yt-profile-action-btn" id="yt-edit-channel-btn">
+                                        <i class="fas fa-pen"></i> 编辑频道
+                                    </div>
+                                </div>
+        
+                                <!-- 滑动分类气泡按钮 -->
+                                <div class="yt-sliding-tabs-wrapper" style="margin-top: 20px;">
+                                    <div class="yt-sliding-tabs" id="profile-main-tabs">
+                                        <div class="yt-sliding-tab active" data-target="live">直播</div>
+                                        <div class="yt-sliding-tab" data-target="past">往期</div>
+                                        <div class="yt-sliding-tab" data-target="community">社群</div>
+                                        <div class="yt-tab-indicator" id="profile-tab-indicator"></div>
+                                    </div>
+                                </div>
+        
+                                <!-- 视频列表容器 -->
+                                <div class="yt-profile-content-list" id="yt-profile-content-list">
+                                    <!-- 内容将通过JS动态加载 -->
+                                </div>
+                            </div>
+        
+                            <!-- Messages (私信) Tab Content -->
+                            <div id="yt-messages-tab" class="yt-tab-content">
+                                <div class="yt-trending-header" style="padding: 15px 16px 5px; display: flex; justify-content: space-between; align-items: center;">
+                                    <h2 style="font-size: 22px; font-weight: 700; margin: 0;">消息</h2>
+                                    <div id="yt-messages-refresh-btn" style="background: #f2f2f2; width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                        <i class="fas fa-magic" style="color: #000; font-size: 14px;"></i>
+                                    </div>
+                                </div>
+        
+                                <div class="yt-filters-bar" style="padding-top: 5px; margin-bottom: 10px;">
+                                    <div class="yt-filter-bubble active" id="msg-filter-dm">私信</div>
+                                    <div class="yt-filter-bubble" id="msg-filter-community">社群</div>
+                                    <div class="yt-filter-bubble" id="msg-filter-business">商务</div>
+                                </div>
+        
+                                <!-- 消息内容区域 -->
+                                <div id="yt-messages-list" style="padding: 0 16px; padding-bottom: 80px; display: flex; flex-direction: column; gap: 10px;">
+                                    <!-- 私信、社群或商务列表注入点 -->
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Add Button Popover (Action Sheet) -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-create-sheet" style="z-index: 250;">
+                            <div class="bottom-sheet" style="height: auto; max-height: 60%; padding-bottom: 40px;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">创建</div>
+                                <div style="display: flex; flex-direction: column; padding: 20px 16px;">
+                                    <div class="yt-create-bubble-btn" style="cursor: pointer;">
+                                        <div style="border-radius: 50%; background: #ffebee; color: #cc0000; display: flex; justify-content: center; align-items: center;">
+                                            <i class="fas fa-broadcast-tower"></i>
+                                        </div>
+                                        <span>开始直播</span>
+                                    </div>
+                                    <div class="yt-create-bubble-btn" style="cursor: pointer;">
+                                        <div style="border-radius: 50%; background: #e8f5e9; color: #388e3c; display: flex; justify-content: center; align-items: center;">
+                                            <i class="fas fa-edit"></i>
+                                        </div>
+                                        <span>发布贴文</span>
+                                    </div>
+                                    <div class="yt-create-bubble-btn" style="cursor: pointer;">
+                                        <div style="border-radius: 50%; background: #fff3e0; color: #f57c00; display: flex; justify-content: center; align-items: center;">
+                                            <i class="fas fa-users"></i>
+                                        </div>
+                                        <span>创建社群</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Edit Channel Bottom Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-edit-channel-sheet" style="z-index: 300;">
+                            <div class="bottom-sheet">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">编辑频道</div>
+                                
+                                <div class="detail-sheet-content">
+                                    <!-- Background Upload -->
+                                    <div class="edit-avatar-section" style="margin-top: 0; margin-bottom: 15px;">
+                                        <div class="yt-edit-banner-wrapper" id="yt-edit-banner-btn" style="width: 100%; height: 100px; background-color: #e5e5e5; border-radius: 12px; display: flex; justify-content: center; align-items: center; cursor: pointer; overflow: hidden; position: relative;">
+                                            <img id="yt-edit-banner-img" src="" alt="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                            <div style="position: absolute; background: rgba(0,0,0,0.4); border-radius: 50%; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center;">
+                                                <i class="fas fa-camera" style="color: white;"></i>
+                                            </div>
+                                            <input type="file" id="yt-banner-upload" accept="image/*" style="display:none;">
+                                        </div>
+                                    </div>
+        
+                                    <!-- Avatar Upload -->
+                                    <div class="edit-avatar-section" style="margin-top: -40px; margin-bottom: 15px; position: relative; z-index: 2;">
+                                        <div class="edit-avatar-wrapper detail-avatar-wrapper" id="yt-edit-avatar-wrapper">
+                                            <div class="edit-avatar" id="yt-edit-avatar-preview" style="border: 3px solid #fff; width: 80px; height: 80px;">
+                                                <i class="fas fa-user"></i>
+                                                <img id="yt-edit-avatar-img" src="" alt="" style="display:none;">
+                                            </div>
+                                            <div style="position: absolute; bottom: 8px; right: 0; background: rgba(0,0,0,0.6); border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                                <i class="fas fa-camera" style="color: white; font-size: 12px;"></i>
+                                            </div>
+                                            <input type="file" id="yt-avatar-upload" accept="image/*" style="display:none;">
+                                        </div>
+                                    </div>
+        
+                                    <div class="form-group fully-rounded">
+                                        <div class="form-item">
+                                            <label>名字</label>
+                                            <input type="text" id="yt-edit-name-input" placeholder="输入频道名字">
+                                        </div>
+                                        <div class="form-item">
+                                            <label>账号</label>
+                                            <input type="text" id="yt-edit-handle-input" placeholder="输入@账号 (如: user123)">
+                                        </div>
+                                        <div class="form-item">
+                                            <label>网址</label>
+                                            <input type="text" id="yt-edit-url-input" placeholder="频道网址" style="color: #8e8e93; font-size: 14px;" readonly>
+                                        </div>
+                                    </div>
+        
+                                    <!-- 新增：订阅者和视频数量编辑 -->
+                                    <div class="form-group fully-rounded" style="margin-top: 20px;">
+                                        <div class="form-item">
+                                            <label>订阅者</label>
+                                            <input type="text" id="yt-edit-subs-input" placeholder="输入数量 (例如: 1.2万)">
+                                        </div>
+                                        <div class="form-item">
+                                            <label>视频数</label>
+                                            <input type="text" id="yt-edit-videos-input" placeholder="输入数量 (例如: 45)">
+                                        </div>
+                                    </div>
+        
+                                    <div class="sheet-action confirm-action" id="confirm-yt-edit-btn" style="background-color: #0f0f0f; color: #fff;">保存修改</div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Floating Bottom Navigation -->
+                        <div class="yt-bottom-nav-container">
+                            <div class="yt-bottom-nav">
+                                <div class="yt-nav-indicator" id="yt-nav-indicator"></div>
+                                <div class="yt-nav-item active" data-target="yt-home-tab" data-index="0">
+                                    <i class="fas fa-play-circle"></i>
+                                    <span>订阅</span>
+                                </div>
+                                <div class="yt-nav-item" data-target="yt-trending-tab" data-index="1">
+                                    <i class="fas fa-fire"></i>
+                                    <span>榜单</span>
+                                </div>
+                                <div class="yt-nav-item yt-nav-item-center" id="yt-nav-plus-btn" data-index="2">
+                                    <div class="yt-plus-icon-wrapper" style="background: transparent; border: none; box-shadow: none; color: #000; width: auto; height: auto;">
+                                        <i class="fas fa-plus-circle" style="font-size: 38px; background: #fff; border-radius: 50%;"></i>
+                                    </div>
+                                </div>
+                                <div class="yt-nav-item" data-target="yt-messages-tab" data-index="3">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>消息</span>
+                                </div>
+                                <div class="yt-nav-item" data-target="yt-profile-tab" data-index="4">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>我的</span>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Sub Channel View -->
+                        <div class="sub-channel-view" id="sub-channel-view">
+                            <div class="yt-header">
+                                <div class="yt-header-left" id="sub-channel-back-btn" style="display:flex;align-items:center;gap:10px;">
+                                    <i class="fas fa-chevron-left"></i>
+                                </div>
+                                <div class="yt-header-right" style="cursor:pointer;">
+                                    <i class="fas fa-wand-magic-sparkles yt-icon-btn" id="yt-char-generate-btn"></i>
+                                    <i class="fas fa-pen yt-icon-btn" id="yt-char-edit-btn"></i>
+                                </div>
+                            </div>
+                            <div style="flex:1; overflow-y:auto; padding-bottom:40px;">
+                                <div id="sub-channel-banner" style="height:160px; background:#e5e5e5; background-size:cover; background-position:center;"></div>
+                                <div class="yt-sub-channel-info-box">
+                                    <img id="sub-channel-avatar" class="yt-sub-channel-avatar" src="" alt="">
+                                    <div class="yt-sub-channel-meta-row">
+                                        <div class="yt-sub-channel-text-col">
+                                            <div id="sub-channel-name" class="yt-sub-channel-name">频道名称</div>
+                                            <div id="sub-channel-handle" class="yt-sub-channel-handle">@channel</div>
+                                            <div class="yt-sub-channel-stats-row">
+                                                <span id="sub-channel-subs">0 订阅者</span>
+                                                <span>•</span>
+                                                <span id="sub-channel-videos">0 视频</span>
+                                            </div>
+                                        </div>
+                                        <div class="yt-channel-subscribe-btn" id="sub-channel-subscribe-btn">订阅</div>
+                                    </div>
+                                </div>
+                                <div class="yt-sliding-tabs-container" style="margin-top:4px;">
+                                    <div class="yt-sliding-tabs" id="sub-channel-tabs">
+                                        <div class="yt-sliding-tab active" data-target="live">直播</div>
+                                        <div class="yt-sliding-tab" data-target="past">往期</div>
+                                        <div class="yt-sliding-tab" data-target="community">社区</div>
+                                        <div class="yt-tab-indicator"></div>
+                                    </div>
+                                </div>
+                                <div id="sub-channel-loading" style="display:none; text-align:center; padding:28px; color:#8e8e93;">
+                                    <i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i>生成中...
+                                </div>
+                                <div class="yt-channel-content" id="sub-channel-content"></div>
+                            </div>
+                        </div>
+        
+                        <!-- Video Player View -->
+                        <div class="app-view" id="yt-video-player-view" style="display:none; position:absolute; inset:0; z-index:320; flex-direction:column; background:#fff;">
+                            <div class="yt-header" style="background:transparent;">
+                                <div class="yt-header-left" id="yt-player-back-btn" style="width:36px; height:36px; border-radius:18px; display:flex; justify-content:center; align-items:center;">
+                                    <i class="fas fa-chevron-left"></i>
+                                </div>
+                            </div>
+                            <div id="yt-player-video-area" style="position:relative; width:100%; aspect-ratio:16/9; background:#000; overflow:hidden; margin-top:max(52px, calc(44px + env(safe-area-inset-top, 0px)));">
+                                <img id="yt-player-thumbnail" src="" alt="" style="width:100%; height:100%; object-fit:cover;">
+                                <div id="yt-player-live-badge" class="yt-live-badge" style="display:none;">LIVE</div>
+                                <div id="yt-char-speech-bubble" style="display:none; position:absolute; left:16px; right:16px; bottom:16px; padding:12px 14px; border-radius:18px; font-size:14px; line-height:1.45;"></div>
+                            </div>
+                            <div style="padding:14px 16px 10px; border-bottom:1px solid #f2f2f2;">
+                                <div id="yt-player-title" style="font-size:18px; font-weight:700; color:#0f0f0f; line-height:1.4;">标题</div>
+                                <div id="yt-player-views" style="font-size:13px; color:#606060; margin-top:4px;">0 次观看</div>
+                                <div style="display:flex; align-items:center; gap:12px; margin-top:14px;">
+                                    <img id="yt-player-avatar" src="" alt="" style="width:42px; height:42px; border-radius:50%; object-fit:cover; background:#f2f2f2;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div id="yt-player-channel-name" style="font-size:15px; font-weight:600; color:#0f0f0f;">频道</div>
+                                        <div id="yt-player-channel-subs" style="font-size:12px; color:#606060;">0 订阅者</div>
+                                    </div>
+                                    <div id="yt-gift-btn" style="display:none; background:#f2f2f2; color:#0f0f0f; padding:8px 12px; border-radius:18px; font-size:13px; font-weight:600; cursor:pointer;">
+                                        <i class="fas fa-gift"></i>
+                                    </div>
+                                    <div class="yt-player-menu-container" style="display:none;">
+                                        <div id="yt-player-plus-btn" style="width:34px; height:34px; border-radius:17px; background:#f2f2f2; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                            <i class="fas fa-plus"></i>
+                                        </div>
+                                        <div class="yt-player-action-menu" id="yt-player-action-menu">
+                                            <div class="yt-player-menu-item" id="yt-player-action-continue"><i class="fas fa-forward"></i><span>继续直播</span></div>
+                                            <div class="yt-player-menu-item" id="yt-player-action-summary"><i class="fas fa-file-lines"></i><span>生成总结</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <div id="yt-player-chat-title" style="padding:12px 16px; font-size:14px; font-weight:600;">实时聊天</div>
+                                <div id="yt-player-chat-container" style="flex:1; overflow-y:auto; padding:0 16px 16px;"></div>
+                                <div class="chat-input-area yt-chat-input-area" style="display:flex; align-items:center; gap:10px; padding:10px 16px 14px;">
+                                    <input id="yt-player-chat-input" type="text" placeholder="发送消息..." style="flex:1; border:none; border-radius:20px; padding:11px 14px; outline:none; font-size:14px;">
+                                    <div id="yt-player-chat-send" style="width:38px; height:38px; border-radius:19px; background:#0f0f0f; color:#fff; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Edit Video Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-edit-video-sheet" style="z-index:340;">
+                            <div class="bottom-sheet">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">编辑视频</div>
+                                <div class="detail-sheet-content">
+                                    <div id="yt-edit-video-cover-btn" style="width:100%; aspect-ratio:16/9; background:#f2f2f2; border-radius:16px; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative; cursor:pointer;">
+                                        <img id="yt-edit-video-cover-img" src="" alt="" style="width:100%; height:100%; object-fit:cover; display:none;">
+                                        <div style="position:absolute; width:40px; height:40px; border-radius:20px; background:rgba(0,0,0,0.45); color:#fff; display:flex; justify-content:center; align-items:center;">
+                                            <i class="fas fa-camera"></i>
+                                        </div>
+                                        <input type="file" id="yt-edit-video-upload" accept="image/*" style="display:none;">
+                                    </div>
+                                    <div class="form-group fully-rounded" style="margin-top:20px;">
+                                        <div class="form-item">
+                                            <label>标题</label>
+                                            <input type="text" id="yt-edit-video-title-input" placeholder="输入标题">
+                                        </div>
+                                        <div class="form-item" id="yt-edit-video-guest-selector" style="cursor:pointer;">
+                                            <label>联动嘉宾</label>
+                                            <input type="text" id="yt-edit-video-guest-name" value="无" readonly style="color:#606060;">
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:10px; margin-top:18px;">
+                                        <div class="sheet-action" id="reset-yt-video-btn" style="flex:1; margin:0;">重置</div>
+                                        <div class="sheet-action confirm-action" id="confirm-yt-video-btn" style="flex:1; margin:0; background:#0f0f0f; color:#fff;">保存</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Guest Picker -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-guest-picker-sheet" style="z-index:345;">
+                            <div class="bottom-sheet" style="height:60%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">选择联动嘉宾</div>
+                                <div id="yt-guest-list" class="account-list" style="flex:1; overflow-y:auto; margin:16px;"></div>
+                                <div class="sheet-action" id="close-yt-guest-picker-btn" style="margin:0 16px 20px;">取消</div>
+                            </div>
+                        </div>
+        
+                        <!-- Super Chat Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-sc-sheet" style="z-index:346;">
+                            <div class="bottom-sheet">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">发送 Super Chat</div>
+                                <div class="detail-sheet-content">
+                                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;">
+                                        <div class="sc-amount-btn selected" data-amount="30" style="background:#606060; color:#fff; padding:12px; text-align:center; border-radius:14px; cursor:pointer;">￥30</div>
+                                        <div class="sc-amount-btn" data-amount="50" style="background:#f2f2f2; color:#333; padding:12px; text-align:center; border-radius:14px; cursor:pointer;">￥50</div>
+                                        <div class="sc-amount-btn" data-amount="100" style="background:#f2f2f2; color:#333; padding:12px; text-align:center; border-radius:14px; cursor:pointer;">￥100</div>
+                                    </div>
+                                    <input id="yt-sc-custom-amount" type="number" placeholder="自定义金额" style="width:100%; margin-top:14px; border:none; border-radius:14px; background:#f2f2f2; padding:12px 14px; box-sizing:border-box; outline:none;">
+                                    <textarea id="yt-sc-input" placeholder="说点什么..." style="width:100%; min-height:90px; margin-top:12px; border:none; border-radius:14px; background:#f2f2f2; padding:12px 14px; box-sizing:border-box; outline:none; resize:none;"></textarea>
+                                    <div class="sheet-action confirm-action" id="yt-send-sc-btn" style="margin-top:14px; background:#606060; color:#fff;">发送 ￥30</div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- User Live Setup Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-user-live-setup-sheet" style="z-index:330;">
+                            <div class="bottom-sheet" style="max-height:82%;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">开始直播</div>
+                                <div class="detail-sheet-content">
+                                    <div id="yt-user-live-bg-btn" style="width:100%; aspect-ratio:16/9; background:#f2f2f2; border-radius:16px; overflow:hidden; position:relative; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                        <img id="yt-user-live-bg-img" src="" alt="" style="width:100%; height:100%; object-fit:cover; display:none;">
+                                        <div style="position:absolute; width:42px; height:42px; border-radius:21px; background:rgba(0,0,0,0.45); color:#fff; display:flex; justify-content:center; align-items:center;">
+                                            <i class="fas fa-camera"></i>
+                                        </div>
+                                        <input type="file" id="yt-user-live-bg-upload" accept="image/*" style="display:none;">
+                                    </div>
+                                    <div class="form-group fully-rounded" style="margin-top:20px;">
+                                        <div class="form-item">
+                                            <label>直播标题</label>
+                                            <input type="text" id="yt-user-live-title-input" placeholder="我的直播间">
+                                        </div>
+                                        <div class="form-item">
+                                            <label>直播主题</label>
+                                            <input type="text" id="yt-user-live-topic-input" placeholder="今天聊什么">
+                                        </div>
+                                        <div class="form-item" id="yt-user-live-guest-selector" style="cursor:pointer;">
+                                            <label>联动嘉宾</label>
+                                            <input type="text" id="yt-user-live-guest-name" value="无" readonly style="color:#606060;">
+                                        </div>
+                                    </div>
+                                    <div class="sheet-action confirm-action" id="start-user-live-btn" style="background:#0f0f0f; color:#fff;">开始直播</div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- User Live View -->
+                        <div class="app-view" id="yt-user-live-view" style="display:none; position:absolute; inset:0; z-index:335; flex-direction:column; background:#000;">
+                            <div id="yt-user-live-video-area" style="position:relative; flex:1; overflow:hidden; background:#000;">
+                                <img id="yt-user-live-bg-display" src="" alt="" style="width:100%; height:100%; object-fit:cover; opacity:0.96;">
+                                <div style="position:absolute; top:max(16px, env(safe-area-inset-top)); left:16px; right:16px; display:flex; justify-content:space-between; align-items:center; z-index:5;">
+                                    <div id="yt-user-live-back-btn" style="width:36px; height:36px; border-radius:18px; background:rgba(0,0,0,0.35); color:#fff; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                        <i class="fas fa-xmark"></i>
+                                    </div>
+                                    <div style="display:flex; gap:10px; align-items:center;">
+                                        <div id="yt-user-live-views-display" style="padding:8px 12px; border-radius:18px; background:rgba(0,0,0,0.35); color:#fff; font-size:12px;">0 人正在观看</div>
+                                        <div id="yt-user-live-minimize-btn" style="width:36px; height:36px; border-radius:18px; background:rgba(0,0,0,0.35); color:#fff; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                            <i class="fas fa-minus"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="yt-user-live-title-display" style="position:absolute; left:16px; bottom:110px; max-width:72%; font-size:20px; font-weight:700; color:#fff; z-index:4; text-shadow:0 2px 6px rgba(0,0,0,0.35);">我的直播间</div>
+                                <div id="yt-user-live-bubbles-container" style="position:absolute; left:16px; right:90px; bottom:150px; display:flex; flex-direction:column; gap:10px; z-index:4;"></div>
+                                <div id="yt-user-live-alert-container" style="position:absolute; inset:0; pointer-events:none; z-index:4;"></div>
+                            </div>
+                            <div style="height:42%; min-height:260px; background:#fff; border-radius:22px 22px 0 0; margin-top:-14px; position:relative; z-index:6; display:flex; flex-direction:column;">
+                                <div style="padding:14px 16px 10px; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; color:#0f0f0f;">
+                                    <span>实时聊天</span>
+                                    <div id="yt-user-live-trigger-api-btn" style="width:34px; height:34px; border-radius:17px; background:#f2f2f2; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                        <i class="fas fa-magic"></i>
+                                    </div>
+                                </div>
+                                <div id="yt-user-live-chat-container" style="flex:1; overflow-y:auto; padding:0 16px 16px;"></div>
+                                <div class="yt-chat-input-area" style="display:flex; align-items:center; gap:10px; padding:10px 16px 14px; border-top:1px solid #f2f2f2;">
+                                    <input id="yt-user-live-chat-input" type="text" placeholder="说点什么..." style="flex:1; border:none; border-radius:20px; background:#f2f2f2; padding:11px 14px; outline:none;">
+                                    <div id="yt-user-live-chat-send" style="width:38px; height:38px; border-radius:19px; background:#0f0f0f; color:#fff; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- User Live Summary Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-user-live-summary-sheet" style="z-index:347;">
+                            <div class="bottom-sheet">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">直播总结</div>
+                                <div class="detail-sheet-content">
+                                    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
+                                        <div style="background:#f8f8f8; border-radius:16px; padding:14px;">
+                                            <div style="font-size:12px; color:#8e8e93;">观看人数</div>
+                                            <div id="yt-summary-views" style="font-size:20px; font-weight:700; margin-top:6px;">0</div>
+                                        </div>
+                                        <div style="background:#f8f8f8; border-radius:16px; padding:14px;">
+                                            <div style="font-size:12px; color:#8e8e93;">最高热度</div>
+                                            <div id="yt-summary-hot" style="font-size:20px; font-weight:700; margin-top:6px;">0</div>
+                                        </div>
+                                        <div style="background:#f8f8f8; border-radius:16px; padding:14px;">
+                                            <div style="font-size:12px; color:#8e8e93;">新增订阅</div>
+                                            <div id="yt-summary-subs" style="font-size:20px; font-weight:700; margin-top:6px;">+0</div>
+                                        </div>
+                                        <div style="background:#f8f8f8; border-radius:16px; padding:14px;">
+                                            <div style="font-size:12px; color:#8e8e93;">打赏收入</div>
+                                            <div id="yt-summary-sc" style="font-size:20px; font-weight:700; margin-top:6px;">￥0</div>
+                                        </div>
+                                    </div>
+                                    <div class="sheet-action confirm-action" id="yt-summary-confirm-btn" style="margin-top:16px; background:#0f0f0f; color:#fff;">保存录播</div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Data Center Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-data-center-sheet" style="z-index:331;">
+                            <div class="bottom-sheet" style="max-height:85%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">数据中心</div>
+                                <div class="detail-sheet-content" style="overflow-y:auto;">
+                                    <div class="yt-dc-grid">
+                                        <div class="yt-dc-card">
+                                            <div class="yt-dc-card-title">累计观看</div>
+                                            <div id="dc-total-views" class="yt-dc-card-value">0</div>
+                                        </div>
+                                        <div class="yt-dc-card">
+                                            <div class="yt-dc-card-title">SC 收益</div>
+                                            <div id="dc-total-sc" class="yt-dc-card-value">0.00</div>
+                                        </div>
+                                        <div class="yt-dc-card">
+                                            <div class="yt-dc-card-title">新增订阅</div>
+                                            <div id="dc-total-subs" class="yt-dc-card-value">0</div>
+                                        </div>
+                                        <div class="yt-dc-card">
+                                            <div class="yt-dc-card-title">商务收益</div>
+                                            <div id="dc-total-commission" class="yt-dc-card-value">0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="yt-dc-revenue-card">
+                                        <div class="yt-dc-revenue-title">总收入</div>
+                                        <div id="dc-total-revenue" class="yt-dc-revenue-value">0.00</div>
+                                        <div id="yt-withdraw-btn" class="yt-dc-withdraw-btn">提现到 Pay</div>
+                                    </div>
+                                    <div class="yt-dc-section-header">
+                                        <div class="yt-dc-section-title">进行中的商单</div>
+                                    </div>
+                                    <div id="dc-offers-list" class="yt-dc-offers-list"></div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- All Subscriptions Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-all-subs-sheet" style="z-index: 345;">
+                            <div class="bottom-sheet" style="max-height:85%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">全部订阅</div>
+                                <div class="detail-sheet-content" style="flex:1; overflow-y:auto; padding:0 16px;">
+                                    <div id="yt-all-subs-list" style="display:flex; flex-direction:column; gap:12px; margin-top:10px; padding-bottom: 20px;">
+                                        <!-- Injected by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- YouTube Settings Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-settings-sheet" style="z-index:332;">
+                            <div class="bottom-sheet" style="max-height:85%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">YouTube 设置</div>
+                                <div class="detail-sheet-content" style="overflow-y:auto;">
+                                    <div class="settings-group fully-rounded" style="margin:0 0 16px;">
+                                        <div class="settings-item" id="yt-bind-wb-btn">
+                                            <div class="settings-icon" style="background-color:#1c1c1e;"><i class="fas fa-book"></i></div>
+                                            <div class="settings-text">绑定世界书</div>
+                                            <div id="yt-bound-wb-name" style="font-size:13px; color:#8e8e93; margin-right:6px;">未绑定</div>
+                                            <i class="fas fa-chevron-right arrow"></i>
+                                        </div>
+                                        <div class="settings-item" id="yt-summary-list-btn">
+                                            <div class="settings-icon" style="background-color:#5856d6;"><i class="fas fa-file-lines"></i></div>
+                                            <div class="settings-text">直播总结</div>
+                                            <i class="fas fa-chevron-right arrow"></i>
+                                        </div>
+                                        <div class="settings-item" onclick="document.getElementById('yt-prompt-sheet').classList.add('active'); document.getElementById('yt-settings-sheet').classList.remove('active');">
+                                            <div class="settings-icon" style="background-color:#ff9500;"><i class="fas fa-wand-magic-sparkles"></i></div>
+                                            <div class="settings-text">提示词设置</div>
+                                            <i class="fas fa-chevron-right arrow"></i>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group fully-rounded" style="margin:0 0 16px;">
+                                        <div class="settings-item" id="yt-clear-data-btn" style="border-bottom: none;">
+                                            <div class="settings-icon" style="background-color:#ff3b30;"><i class="fas fa-trash-alt"></i></div>
+                                            <div class="settings-text" style="color:#ff3b30;">清理 YouTube 数据</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Prompt Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-prompt-sheet" style="z-index:334;">
+                            <div class="bottom-sheet" style="max-height:90%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">提示词设置</div>
+                                <div class="detail-sheet-content" style="overflow-y:auto;">
+                                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                                        <div class="yt-filter-bubble active" id="prompt-tab-live">直播</div>
+                                        <div class="yt-filter-bubble" id="prompt-tab-summary">总结</div>
+                                        <div class="yt-filter-bubble" id="prompt-tab-group">群聊</div>
+                                    </div>
+                                    <div id="yt-prompt-desc" style="font-size:13px; color:#8e8e93; margin-bottom:10px;">直播互动提示词。使用变量。</div>
+                                    <textarea id="yt-prompt-input" style="width:100%; min-height:260px; border:none; border-radius:16px; background:#f2f2f2; padding:14px; box-sizing:border-box; resize:none; outline:none;"></textarea>
+                                    <div style="display:flex; gap:10px; margin-top:14px;">
+                                        <div class="sheet-action" id="reset-yt-prompt-btn" style="flex:1; margin:0;">重置默认</div>
+                                        <div class="sheet-action confirm-action" id="confirm-yt-prompt-btn" style="flex:1; margin:0; background:#0f0f0f; color:#fff;">保存</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Summary List Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-summary-list-sheet" style="z-index:336;">
+                            <div class="bottom-sheet" style="max-height:85%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">直播总结</div>
+                                <div id="yt-summary-list-container" style="flex:1; overflow-y:auto; padding:16px;"></div>
+                            </div>
+                        </div>
+        
+                        <!-- Summary Detail Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-summary-detail-sheet" style="z-index:337;">
+                            <div class="bottom-sheet" style="max-height:85%; display:flex; flex-direction:column;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">总结详情</div>
+                                <div class="detail-sheet-content">
+                                    <textarea id="yt-summary-detail-text" style="width:100%; min-height:260px; border:none; border-radius:16px; background:#f2f2f2; padding:14px; box-sizing:border-box; resize:none; outline:none;"></textarea>
+                                    <div style="display:flex; gap:10px; margin-top:14px;">
+                                        <div class="sheet-action" id="yt-summary-delete-btn" style="flex:1; margin:0; color:#ff3b30;">删除</div>
+                                        <div class="sheet-action confirm-action" id="yt-summary-save-btn" style="flex:1; margin:0; background:#0f0f0f; color:#fff;">保存</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- --- Community Detail View --- -->
+                        <div class="yt-community-detail-view" id="yt-community-detail-view" style="z-index:338;">
+                            <div class="yt-community-detail-header">
+                                <div id="yt-community-detail-back-btn" style="font-size:20px; padding-right:16px; cursor:pointer;"><i class="fas fa-chevron-left"></i></div>
+                                <div style="font-size:16px; font-weight:600;">社群帖子</div>
+                            </div>
+                            <div class="yt-community-detail-content" id="yt-community-detail-content"></div>
+                            <div class="chat-input-area" style="display:flex; align-items:center; gap:10px; padding:10px 16px 14px; border-top:1px solid #f2f2f2;">
+                                <div id="yt-community-user-avatar" style="width:32px; height:32px; border-radius:16px; overflow:hidden; background:#f2f2f2; flex-shrink:0; display:flex; justify-content:center; align-items:center; color:#ccc;">
+                                    <i class="fas fa-user" id="yt-community-user-icon"></i>
+                                </div>
+                                <input id="yt-community-chat-input" type="text" placeholder="发表评论..." style="flex:1; border:none; border-radius:20px; background:#f2f2f2; padding:10px 14px; outline:none; font-size:14px;">
+                                <div id="yt-community-chat-send" style="color:#0f0f0f; font-size:20px; cursor:pointer; padding:5px;"><i class="fas fa-paper-plane"></i></div>
+                            </div>
+                        </div>
+        
+                        <!-- --- Bubble Chat View (DM & Fan Group) --- -->
+                        <div class="yt-bubble-chat-view" id="yt-bubble-chat-view" style="z-index:340;">
+                            <div class="yt-bubble-chat-header">
+                                <div id="yt-bubble-chat-back-btn" style="font-size:20px; cursor:pointer;"><i class="fas fa-chevron-left"></i></div>
+                                <div id="yt-bubble-chat-title" class="yt-bubble-chat-title">聊天</div>
+                                <div id="yt-bubble-chat-settings-btn" style="font-size:20px; cursor:pointer;"><i class="fas fa-bars"></i></div>
+                            </div>
+                            <div class="yt-bubble-chat-container" id="yt-bubble-chat-container"></div>
+                            <div class="yt-bubble-input-area">
+                                <input id="yt-bubble-chat-input" class="yt-bubble-input" type="text" placeholder="说点什么...">
+                                <div id="yt-bubble-chat-send-btn" class="yt-bubble-send-btn"><i class="fas fa-paper-plane"></i></div>
+                            </div>
+                        </div>
+        
+                        <!-- DM Settings Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-dm-settings-sheet" style="z-index:342;">
+                            <div class="bottom-sheet" style="max-height:85%;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">聊天设置</div>
+                                <div class="detail-sheet-content">
+                                    <div class="settings-group fully-rounded" style="margin:0 16px 16px;">
+                                        <div class="settings-item" id="yt-dm-go-home-btn" style="border-bottom: 1px solid var(--separator-color);">
+                                            <div class="settings-icon" style="background-color: #007aff;"><i class="fas fa-home"></i></div>
+                                            <div class="settings-text">前往频道主页</div>
+                                            <i class="fas fa-chevron-right arrow"></i>
+                                        </div>
+                                        <div class="settings-item" id="yt-dm-add-friend-btn" style="border-bottom: none;">
+                                            <div class="settings-icon" style="background-color: #34c759;"><i class="fas fa-user-plus"></i></div>
+                                            <div class="settings-text">添加为微信好友</div>
+                                            <i class="fas fa-chevron-right arrow"></i>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group fully-rounded" style="margin:0 16px;">
+                                        <div class="sheet-action" id="yt-dm-clear-history-btn" style="margin:0; border-bottom: 1px solid var(--separator-color); border-radius:12px 12px 0 0; color:#ff3b30;">清空聊天记录</div>
+                                        <div class="sheet-action" id="yt-dm-delete-friend-btn" style="margin:0; border-radius:0 0 12px 12px; color:#ff3b30;">删除私信</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Group Settings Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-group-settings-sheet" style="z-index:343;">
+                            <div class="bottom-sheet" style="max-height:85%;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">群聊设置</div>
+                                <div class="detail-sheet-content">
+                                    <div class="edit-avatar-section" style="margin-top: 0; margin-bottom: 15px;">
+                                        <div class="edit-avatar-wrapper detail-avatar-wrapper" id="yt-group-avatar-wrapper">
+                                            <div class="edit-avatar" style="border: 3px solid #fff; width: 80px; height: 80px; background: #e5e5e5; display:flex; justify-content:center; align-items:center;">
+                                                <i class="fas fa-users" id="yt-group-avatar-icon" style="font-size:30px; color:#888;"></i>
+                                                <img id="yt-group-avatar-img" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover;">
+                                            </div>
+                                            <div style="position: absolute; bottom: 8px; right: 0; background: rgba(0,0,0,0.6); border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                                <i class="fas fa-camera" style="color: white; font-size: 12px;"></i>
+                                            </div>
+                                            <input type="file" id="yt-group-avatar-upload" accept="image/*" style="display:none;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group fully-rounded" style="margin:0 16px 16px;">
+                                        <div class="form-item">
+                                            <label>群聊名称</label>
+                                            <input type="text" id="yt-group-name-input" placeholder="输入群聊名称">
+                                        </div>
+                                        <div class="form-item" style="border-bottom:none;">
+                                            <label>所属频道</label>
+                                            <div id="yt-group-owner-info" style="display:flex; align-items:center; gap:8px;">
+                                                <img id="yt-group-owner-avatar" src="" style="width:24px; height:24px; border-radius:50%; object-fit:cover; display:none;">
+                                                <span id="yt-group-owner-name" style="color:#606060;"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sheet-action confirm-action" id="yt-save-group-settings-btn" style="margin:0 16px 20px; background:#0f0f0f; color:#fff;">保存</div>
+                                    <div class="settings-group fully-rounded" style="margin:0 16px;">
+                                        <div class="sheet-action" id="yt-clear-group-history-btn" style="margin:0; border-bottom: 1px solid var(--separator-color); border-radius:12px 12px 0 0; color:#ff3b30;">清空聊天记录</div>
+                                        <div class="sheet-action" id="yt-exit-group-btn" style="margin:0; border-radius:0 0 12px 12px; color:#ff3b30;">退出群聊</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Offer Detail Sheet -->
+                        <div class="bottom-sheet-overlay detail-sheet-overlay" id="yt-offer-detail-sheet" style="z-index:344;">
+                            <div class="bottom-sheet" style="max-height:85%;">
+                                <div class="sheet-handle"></div>
+                                <div class="sheet-title">商单详情</div>
+                                <div class="detail-sheet-content" id="yt-offer-detail-content" style="padding:16px;">
+                                    <!-- Injected by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="add-yt-char-sheet" style="z-index: 400;">
+                        <div class="bottom-sheet">
+                            <div class="sheet-handle"></div>
+                            <div class="sheet-title">自定义频道角色</div>
+                            
+                            <div class="detail-sheet-content">
+                                <!-- Banner Upload -->
+                                <div class="edit-avatar-section" style="margin-top: 0; margin-bottom: 15px;">
+                                    <div class="yt-edit-banner-wrapper" id="yt-char-banner-btn" style="width: 100%; height: 100px; background-color: #e5e5e5; border-radius: 12px; display: flex; justify-content: center; align-items: center; cursor: pointer; overflow: hidden; position: relative;">
+                                        <img id="yt-char-banner-img" src="" alt="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                        <div style="position: absolute; background: rgba(0,0,0,0.4); border-radius: 50%; width: 36px; height: 36px; display: flex; justify-content: center; align-items: center;">
+                                            <i class="fas fa-camera" style="color: white;"></i>
+                                        </div>
+                                        <input type="file" id="yt-char-banner-upload" accept="image/*" style="display:none;">
+                                    </div>
+                                </div>
+        
+                                <!-- Avatar Upload -->
+                                <div class="edit-avatar-section" style="margin-top: -40px; margin-bottom: 15px; position: relative; z-index: 2;">
+                                    <div class="edit-avatar-wrapper detail-avatar-wrapper" id="yt-char-avatar-wrapper">
+                                        <div class="edit-avatar" id="yt-char-avatar-preview" style="border: 3px solid #fff; width: 80px; height: 80px;">
+                                            <i class="fas fa-user"></i>
+                                            <img id="yt-char-avatar-img" src="" alt="" style="display:none;">
+                                        </div>
+                                        <div style="position: absolute; bottom: 8px; right: 0; background: rgba(0,0,0,0.6); border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                            <i class="fas fa-camera" style="color: white; font-size: 12px;"></i>
+                                        </div>
+                                        <input type="file" id="yt-char-avatar-upload" accept="image/*" style="display:none;">
+                                    </div>
+                                </div>
+        
+                                <div class="form-group fully-rounded">
+                                    <div class="form-item" style="display: flex; justify-content: space-between;">
+                                        <label style="width: 80px; flex-shrink: 0; font-weight: 500;">频道名称</label>
+                                        <input type="text" id="yt-char-name-input" placeholder="输入频道名" style="flex: 1; text-align: right; margin-left: 10px; width: 100%;">
+                                    </div>
+                                    <div class="form-item" style="display: flex; justify-content: space-between;">
+                                        <label style="width: 80px; flex-shrink: 0; font-weight: 500;">@账号</label>
+                                        <input type="text" id="yt-char-handle-input" placeholder="自动生成" style="flex: 1; text-align: right; margin-left: 10px; width: 100%;">
+                                    </div>
+                                </div>
+        
+                                <!-- 新增：订阅者和视频数量编辑 -->
+                                <div class="form-group fully-rounded" style="margin-top: 20px;">
+                                    <div class="form-item" style="display: flex; justify-content: space-between;">
+                                        <label style="width: 80px; flex-shrink: 0; font-weight: 500;">订阅者</label>
+                                        <input type="text" id="yt-char-subs-input" placeholder="例如: 1.2万" style="flex: 1; text-align: right; margin-left: 10px; width: 100%;">
+                                    </div>
+                                    <div class="form-item" style="display: flex; justify-content: space-between;">
+                                        <label style="width: 80px; flex-shrink: 0; font-weight: 500;">视频数</label>
+                                        <input type="text" id="yt-char-videos-input" placeholder="例如: 45" style="flex: 1; text-align: right; margin-left: 10px; width: 100%;">
+                                    </div>
+                                </div>
+        
+                                <div class="form-group fully-rounded tall-input-group" style="margin: 20px 16px; min-height: 80px;">
+                                    <div class="form-item tall-item" style="height: 80px;">
+                                        <textarea id="yt-char-desc-input" class="tall-input" placeholder="输入频道的简介或角色人设..."></textarea>
+                                    </div>
+                                </div>
+        
+                                <div class="form-group fully-rounded tall-input-group" style="margin: 20px 16px; min-height: 80px;">
+                                    <div class="form-item tall-item" style="height: 80px;">
+                                        <textarea id="yt-char-live-topic-input" class="tall-input" placeholder="直播主题与简介 (仅AI可见，不显示在外)"></textarea>
+                                    </div>
+                                </div>
+                                
+                                <div class="sheet-action confirm-action" id="confirm-add-yt-char-btn" style="background-color: #0f0f0f; color: #fff;">生成频道并开播</div>
+                            </div>
+                        </div>
+                    </div>
 
         <div class="app-view imessage-view" id="imessage-view">
                 <!-- Header -->
@@ -3368,6 +4178,7 @@
     <script src="js/storage/app_storage.js"></script>
     <script src="js/storage/imessage_storage.js"></script>
     <script src="storage.js"></script>
+    <script src="js/app_state_bridge.js"></script>
     <script src="js/bootstrap_globals.js"></script>
     
     <!-- 引入 iMessage 模块分段代码 -->
@@ -3397,6 +4208,13 @@
     <script src="js/ui.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/loves.js"></script>
+    <script src="js/youtube/2_core.js"></script>
+    <script src="js/youtube/3_channel.js"></script>
+    <script src="js/youtube/4_settings.js"></script>
+    <script src="js/youtube/5_player.js"></script>
+    <script src="js/youtube/6_community.js"></script>
+    <script src="js/youtube/7_trending.js"></script>
+    <script src="js/youtube/8_user_live.js"></script>
     <!-- 引入主逻辑脚本 -->
     <script src="script.js"></script>
 </body>

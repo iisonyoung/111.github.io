@@ -22,6 +22,12 @@
     outline: 1px solid #000; /* Fix potential white edge lines */
 }
 
+#bstage-view.bstage-view {
+    inset: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
 .bstage-view.active {
     transform: translateX(0);
 }
@@ -30,8 +36,8 @@
 .bstage-header {
     height: auto;
     min-height: 44px; /* Compact height */
-    padding: 10px 16px 10px; /* Match YouTube padding */
-    margin-top: max(10px, env(safe-area-inset-top, 0px)); /* Adapted for cleaner top alignment */
+    padding: max(10px, calc(10px + env(safe-area-inset-top, 0px))) 16px 10px;
+    margin-top: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;

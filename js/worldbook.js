@@ -712,6 +712,78 @@ function renderWorldBooks() {
 
 }
 window.renderWorldBooks = renderWorldBooks; // Export for update
+window.getWorldBooks = function() {
+    return Array.isArray(worldBooks) ? worldBooks : [];
+};
+
+window.renderWorldBookSelector = function(selectedIds = [], onConfirm) {
+    const selected = new Set((Array.isArray(selectedIds) ? selectedIds : []).map(String));
+    let selectorSheet = document.getElementById('wb-selector-sheet');
+
+    if (!selectorSheet) {
+        selectorSheet = document.createElement('div');
+        selectorSheet.id = 'wb-selector-sheet';
+        selectorSheet.className = 'bottom-sheet-overlay detail-sheet-overlay';
+        selectorSheet.style.zIndex = '650';
+        selectorSheet.innerHTML = `
+            <div class="bottom-sheet" style="height: 72%; display: flex; flex-direction: column;">
+                <div class="sheet-handle"></div>
+                <div class="sheet-title">选择世界书</div>
+                <div id="wb-selector-list" class="account-list" style="flex: 1; overflow-y: auto; margin: 16px;"></div>
+                <div style="display: flex; gap: 10px; padding: 0 16px 20px;">
+                    <div class="sheet-action" id="wb-selector-cancel-btn" style="flex: 1; margin: 0;">取消</div>
+                    <div class="sheet-action confirm-action" id="wb-selector-confirm-btn" style="flex: 1; margin: 0; background-color: #1c1c1e; color: #fff;">保存</div>
+                </div>
+            </div>
+        `;
+        const appRoot = document.getElementById('app') || document.body;
+        appRoot.appendChild(selectorSheet);
+
+        selectorSheet.addEventListener('click', (event) => {
+            if (event.target === selectorSheet) closeView(selectorSheet);
+        });
+    }
+
+    const listEl = selectorSheet.querySelector('#wb-selector-list');
+    const confirmBtn = selectorSheet.querySelector('#wb-selector-confirm-btn');
+    const cancelBtn = selectorSheet.querySelector('#wb-selector-cancel-btn');
+
+    if (listEl) {
+        if (!Array.isArray(worldBooks) || worldBooks.length === 0) {
+            listEl.innerHTML = '<div style="padding: 40px 16px; text-align: center; color: #8e8e93; font-size: 15px;">暂无世界书</div>';
+        } else {
+            listEl.innerHTML = worldBooks.map((book) => {
+                const id = String(book.id);
+                const checked = selected.has(id) ? 'checked' : '';
+                const name = book.name || '未命名世界书';
+                return `
+                    <label class="settings-item" style="cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                            <i class="fas fa-book" style="color: var(--blue-color);"></i>
+                            <span style="font-size: 15px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</span>
+                        </div>
+                        <input type="checkbox" class="wb-selector-checkbox" value="${id}" ${checked} style="width: 20px; height: 20px;">
+                    </label>
+                `;
+            }).join('');
+        }
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => closeView(selectorSheet);
+    }
+
+    if (confirmBtn) {
+        confirmBtn.onclick = () => {
+            const nextIds = Array.from(selectorSheet.querySelectorAll('.wb-selector-checkbox:checked'))
+                .map((input) => input.value);
+            closeView(selectorSheet);
+            if (typeof onConfirm === 'function') onConfirm(nextIds);
+        };
+    }
+
+    openView(selectorSheet);
+};
 
 // Auto-save summary to World Book globally
 window.autoSaveSummaryToWorldBook = function(title, summaryText) {
