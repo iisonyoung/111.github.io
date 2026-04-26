@@ -48,6 +48,137 @@
     }
 
     // ==========================================
+    // 全局通用方法
+    // ==========================================
+    window.openView = function(viewElement) {
+        if(viewElement) viewElement.classList.add('active');
+    };
+
+    window.closeView = function(viewElement) {
+        if(viewElement) viewElement.classList.remove('active');
+    };
+
+    // --- Custom Modal System ---
+    window.showCustomModal = function(options) {
+        const overlay = document.getElementById('custom-modal-overlay');
+        if (!overlay) return;
+
+        const titleEl = document.getElementById('modal-title');
+        const messageEl = document.getElementById('modal-message');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        
+        if (titleEl) titleEl.textContent = options.title || '提示';
+        if (messageEl) messageEl.textContent = options.message || '';
+        
+        if (cancelBtn) {
+            cancelBtn.textContent = options.cancelText || '取消';
+            cancelBtn.onclick = () => {
+                window.closeView(overlay);
+                if (options.onCancel) options.onCancel();
+            };
+        }
+        
+        if (confirmBtn) {
+            confirmBtn.textContent = options.confirmText || '确定';
+            if (options.isDestructive) {
+                confirmBtn.style.color = '#ff3b30';
+            } else {
+                confirmBtn.style.color = '#007aff';
+            }
+            confirmBtn.onclick = () => {
+                window.closeView(overlay);
+                if (options.onConfirm) options.onConfirm();
+            };
+        }
+
+        // Handle prompt vs confirm
+        const promptContent = document.getElementById('modal-prompt-content');
+        const confirmContent = document.getElementById('modal-confirm-content');
+        const promptConfirmBtn = document.getElementById('modal-prompt-confirm-btn');
+        const modalInput = document.getElementById('modal-input');
+
+        if (options.type === 'prompt') {
+            if (promptContent) promptContent.style.display = 'block';
+            if (confirmContent) confirmContent.style.display = 'none';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+            if (promptConfirmBtn) {
+                promptConfirmBtn.style.display = 'block';
+                promptConfirmBtn.textContent = options.confirmText || '确定';
+                promptConfirmBtn.onclick = () => {
+                    window.closeView(overlay);
+                    if (options.onConfirm) options.onConfirm(modalInput ? modalInput.value : '');
+                };
+            }
+            if (modalInput) {
+                modalInput.placeholder = options.placeholder || '请输入';
+                modalInput.value = options.defaultValue || '';
+            }
+        } else {
+            if (promptContent) promptContent.style.display = 'none';
+            if (confirmContent) confirmContent.style.display = 'block';
+            if (confirmBtn) confirmBtn.style.display = 'block';
+            if (promptConfirmBtn) promptConfirmBtn.style.display = 'none';
+        }
+
+        window.openView(overlay);
+    };
+
+    // --- Toast Notification System ---
+    let toastTimeout = null;
+    window.showToast = function(message, duration = 2000) {
+        let toast = document.getElementById('global-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'global-toast';
+            toast.className = 'toast-bubble';
+            // Append to screen container to stay within phone frame
+            const screen = document.getElementById('app');
+            if (screen) {
+                screen.appendChild(toast);
+            } else {
+                document.body.appendChild(toast);
+            }
+        }
+
+        toast.textContent = message;
+        toast.classList.remove('show');
+        
+        // Force reflow
+        void toast.offsetWidth;
+        
+        toast.classList.add('show');
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    };
+
+    window.formatChatBubbleTime = function(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        const now = new Date();
+        
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const d = date.getDate().toString().padStart(2, '0');
+        const hh = date.getHours().toString().padStart(2, '0');
+        const mm = date.getMinutes().toString().padStart(2, '0');
+        
+        const isToday = y === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+        const isThisYear = y === now.getFullYear();
+
+        if (isToday) {
+            return `${hh}:${mm}`;
+        } else if (isThisYear) {
+            return `${m}-${d} ${hh}:${mm}`;
+        } else {
+            return `${y}-${m}-${d} ${hh}:${mm}`;
+        }
+    };
+
+    // ==========================================
     // 2. 状态管理 (待实现)
     // ==========================================
     // TODO: 实现应用状态、页面数据、Widget数据的统一管理
@@ -57,9 +188,101 @@
     // ==========================================
     // 3. UI 交互与事件绑定 (待实现)
     // ==========================================
-    // TODO: 实现主屏幕滑动 (Swipe) 功能
     // TODO: 实现 App 图标点击进入应用的动画及页面切换
     // TODO: 实现 Widget 组件的点击编辑、数据渲染
+
+    function getAllMainGrids() {
+        return [...document.querySelectorAll('.main-grid')];
+    }
+
+    function getMaxHomePageIndex() {
+        return Math.max(getAllMainGrids().length - 1, 0);
+    }
+
+    function getCurrentHomePageIndex() {
+        const pagesContainerEl = document.getElementById('pages-container');
+        if (!pagesContainerEl || !pagesContainerEl.clientWidth) return 0;
+        const maxIndex = getMaxHomePageIndex();
+        return Math.min(maxIndex, Math.max(0, Math.round(pagesContainerEl.scrollLeft / pagesContainerEl.clientWidth)));
+    }
+
+    function scrollToHomePageIndex(index, behavior = 'smooth') {
+        const pagesContainerEl = document.getElementById('pages-container');
+        if (!pagesContainerEl || !pagesContainerEl.clientWidth) return 0;
+        const targetIndex = Math.min(getMaxHomePageIndex(), Math.max(0, index));
+        pagesContainerEl.scrollTo({
+            left: targetIndex * pagesContainerEl.clientWidth,
+            behavior
+        });
+        return targetIndex;
+    }
+
+    function updateHomePageIndicators(pageIndex = getCurrentHomePageIndex()) {
+        const dots = document.querySelectorAll('.page-indicators .dot');
+        dots.forEach((dot, index) => {
+            if (index === pageIndex) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
+    }
+
+    // ==========================================
+    // 11. SWIPE / SCROLL NAVIGATION
+    // ==========================================
+    const pagesContainer = document.getElementById('pages-container');
+    if (pagesContainer) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        pagesContainer.addEventListener('pointerdown', (e) => {
+            // Do not intercept if in jiggle mode or interacting with bottom sheets/buttons
+            if (window.isJiggleMode || window.preventAppClick || e.target.closest('.bottom-sheet-overlay')) return;
+            isDown = true;
+            startX = e.pageX - pagesContainer.offsetLeft;
+            scrollLeft = pagesContainer.scrollLeft;
+        });
+
+        pagesContainer.addEventListener('pointerleave', () => {
+            if (!isDown) return;
+            isDown = false;
+            snapToNearestPage();
+        });
+
+        pagesContainer.addEventListener('pointerup', () => {
+            if (!isDown) return;
+            isDown = false;
+            snapToNearestPage();
+        });
+
+        pagesContainer.addEventListener('pointermove', (e) => {
+            if (!isDown) return;
+            if (window.isJiggleMode) {
+                isDown = false;
+                return;
+            }
+            
+            const x = e.pageX - pagesContainer.offsetLeft;
+            const walk = (x - startX) * 1.5;
+            
+            if (Math.abs(walk) > 10) {
+                // We are actually swiping
+                e.preventDefault(); 
+                pagesContainer.scrollLeft = scrollLeft - walk;
+            }
+        });
+
+        function snapToNearestPage() {
+            if (!pagesContainer.clientWidth) return;
+            const pageIndex = Math.round(pagesContainer.scrollLeft / pagesContainer.clientWidth);
+            scrollToHomePageIndex(pageIndex, 'smooth');
+        }
+        
+        pagesContainer.addEventListener('scroll', () => {
+            updateHomePageIndicators();
+        });
+
+        updateHomePageIndicators();
+    }
     
 
     // ==========================================

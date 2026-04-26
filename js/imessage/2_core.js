@@ -1394,6 +1394,10 @@ window.imApp.commitFriendChange = async function(friendId, mutator, options = {}
 };
 
 window.imApp.commitFriendsChange = async function(mutator, options = {}) {
+    if (window.imApp.ensureDataReady && !window.imData.ready) {
+        await window.imApp.ensureDataReady();
+    }
+
     const previousFriends = window.imApp.cloneDataSnapshot(
         Array.isArray(window.imData.friends) ? window.imData.friends : []
     );
@@ -1798,6 +1802,256 @@ window.getGlobalWorldBookContext = function(contextText = '') {
     return sections.join('\n\n').trim();
 };
 
+window.imApp.getWorldBookContextForFriendByPosition = function(position = 'before_role', friend = null, contextText = '') {
+    const normalizeEntry = window.normalizeWorldBookEntry
+        ? window.normalizeWorldBookEntry
+        : function(entry = {}) {
+            return {
+                title: entry.title || entry.name || entry.keyword || '未命名词条',
+                keyword: entry.keyword || '',
+                content: entry.content || '',
+                triggerMode: entry.triggerMode === 'keyword' ? 'keyword' : 'permanent',
+                injectionPosition: ['before_role', 'after_role', 'system_depth'].includes(entry.injectionPosition)
+                    ? entry.injectionPosition
+                    : 'before_role',
+                systemDepth: Number.isFinite(Number(entry.systemDepth)) ? Number(entry.systemDepth) : 4,
+                order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 100,
+                enabled: entry.enabled !== false
+            };
+        };
+
+    const keywordMatched = window.worldBookKeywordMatched
+        ? window.worldBookKeywordMatched
+        : function(entry, text = '') {
+            if (!entry || entry.triggerMode !== 'keyword') return true;
+            const keyword = entry.keyword ? String(entry.keyword).trim() : '';
+            if (!keyword) return false;
+            return String(text || '').includes(keyword);
+        };
+
+    const formatEntry = window.formatWorldBookEntryForPrompt
+        ? window.formatWorldBookEntryForPrompt
+        : function(entry) {
+            const title = entry.title ? String(entry.title).trim() : '未命名词条';
+            const keyword = entry.keyword ? String(entry.keyword).trim() : '';
+            const content = entry.content ? String(entry.content).trim() : '';
+            const triggerModeLabel = entry.triggerMode === 'keyword' ? '关键词' : '永久';
+
+            let injectionLabel = '角色前';
+            if (entry.injectionPosition === 'after_role') injectionLabel = '角色后';
+            if (entry.injectionPosition === 'system_depth') injectionLabel = '系统深度';
+
+            let block = `【${title}】\n`;
+            block += `触发机制: ${triggerModeLabel}\n`;
+            block += `注入位置: ${injectionLabel}\n`;
+
+            if (entry.injectionPosition === 'system_depth') {
+                block += `深度: ${entry.systemDepth}\n`;
+                block += `顺序: ${entry.order}\n`;
+            }
+
+            if (entry.triggerMode === 'keyword' && keyword) {
+                block += `关键词: ${keyword}\n`;
+            }
+
+            if (content) {
+                block += `内容:\n${content}\n`;
+            }
+
+            return block.trim();
+        };
+
+    const titleMap = {
+        before_role: 'Bound World Book / 绑定角色前',
+        after_role: 'Bound World Book / 绑定角色后',
+        system_depth: 'Bound World Book / 绑定系统深度'
+    };
+
+    const sections = [];
+    const globalContext = window.getGlobalWorldBookContextByPosition
+        ? window.getGlobalWorldBookContextByPosition(position, contextText)
+        : '';
+
+    if (globalContext) {
+        sections.push(globalContext.trim());
+    }
+
+    const normalizedFriend = friend ? window.imApp.normalizeFriendData(friend) : null;
+    const boundBookIds = normalizedFriend && Array.isArray(normalizedFriend.boundBooks)
+        ? normalizedFriend.boundBooks.map(id => String(id))
+        : [];
+
+    if (boundBookIds.length > 0 && window.getWorldBooks) {
+        const allBooks = window.getWorldBooks();
+        const boundEntries = [];
+
+        if (Array.isArray(allBooks)) {
+            allBooks
+                .filter(book => book && boundBookIds.includes(String(book.id)) && Array.isArray(book.entries))
+                .forEach(book => {
+                    book.entries
+                        .map(entry => normalizeEntry(entry))
+                        .filter(entry => entry && entry.enabled !== false)
+                        .filter(entry => entry.injectionPosition === position)
+                        .filter(entry => keywordMatched(entry, contextText))
+                        .forEach(entry => {
+                            boundEntries.push({
+                                ...entry,
+                                __bookName: book.name || '未命名世界书'
+                            });
+                        });
+                });
+        }
+
+        if (boundEntries.length > 0) {
+            boundEntries.sort((a, b) => {
+                if (position === 'system_depth') {
+                    if (a.systemDepth !== b.systemDepth) return a.systemDepth - b.systemDepth;
+                    return a.order - b.order;
+                }
+                return a.order - b.order;
+            });
+
+            let section = `${titleMap[position]}:\n`;
+            boundEntries.forEach(entry => {
+                section += `〔${entry.__bookName}〕\n${formatEntry(entry)}\n\n`;
+            });
+            sections.push(section.trim());
+        }
+    }
+
+    return sections.join('\n\n').trim();
+};
+
+window.getWorldBookContextForFriendByPosition = function(position = 'before_role', friend = null, contextText = '') {
+    return window.imApp.getWorldBookContextForFriendByPosition(position, friend, contextText);
+};
+
+window.imApp.getWorldBookContextForFriendByPosition = function(position = 'before_role', friend = null, contextText = '') {
+    const normalizeEntry = window.normalizeWorldBookEntry
+        ? window.normalizeWorldBookEntry
+        : function(entry = {}) {
+            return {
+                title: entry.title || entry.name || entry.keyword || '未命名词条',
+                keyword: entry.keyword || '',
+                content: entry.content || '',
+                triggerMode: entry.triggerMode === 'keyword' ? 'keyword' : 'permanent',
+                injectionPosition: ['before_role', 'after_role', 'system_depth'].includes(entry.injectionPosition)
+                    ? entry.injectionPosition
+                    : 'before_role',
+                systemDepth: Number.isFinite(Number(entry.systemDepth)) ? Number(entry.systemDepth) : 4,
+                order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 100,
+                enabled: entry.enabled !== false
+            };
+        };
+
+    const keywordMatched = window.worldBookKeywordMatched
+        ? window.worldBookKeywordMatched
+        : function(entry, text = '') {
+            if (!entry || entry.triggerMode !== 'keyword') return true;
+            const keyword = entry.keyword ? String(entry.keyword).trim() : '';
+            if (!keyword) return false;
+            return String(text || '').includes(keyword);
+        };
+
+    const formatEntry = window.formatWorldBookEntryForPrompt
+        ? window.formatWorldBookEntryForPrompt
+        : function(entry) {
+            const title = entry.title ? String(entry.title).trim() : '未命名词条';
+            const keyword = entry.keyword ? String(entry.keyword).trim() : '';
+            const content = entry.content ? String(entry.content).trim() : '';
+            const triggerModeLabel = entry.triggerMode === 'keyword' ? '关键词' : '永久';
+
+            let injectionLabel = '角色前';
+            if (entry.injectionPosition === 'after_role') injectionLabel = '角色后';
+            if (entry.injectionPosition === 'system_depth') injectionLabel = '系统深度';
+
+            let block = `【${title}】\n`;
+            block += `触发机制: ${triggerModeLabel}\n`;
+            block += `注入位置: ${injectionLabel}\n`;
+
+            if (entry.injectionPosition === 'system_depth') {
+                block += `深度: ${entry.systemDepth}\n`;
+                block += `顺序: ${entry.order}\n`;
+            }
+
+            if (entry.triggerMode === 'keyword' && keyword) {
+                block += `关键词: ${keyword}\n`;
+            }
+
+            if (content) {
+                block += `内容:\n${content}\n`;
+            }
+
+            return block.trim();
+        };
+
+    const titleMap = {
+        before_role: 'Bound World Book / 绑定角色前',
+        after_role: 'Bound World Book / 绑定角色后',
+        system_depth: 'Bound World Book / 绑定系统深度'
+    };
+
+    const sections = [];
+    const globalContext = window.getGlobalWorldBookContextByPosition
+        ? window.getGlobalWorldBookContextByPosition(position, contextText)
+        : '';
+
+    if (globalContext) {
+        sections.push(globalContext.trim());
+    }
+
+    const normalizedFriend = friend ? window.imApp.normalizeFriendData(friend) : null;
+    const boundBookIds = normalizedFriend && Array.isArray(normalizedFriend.boundBooks)
+        ? normalizedFriend.boundBooks.map(id => String(id))
+        : [];
+
+    if (boundBookIds.length > 0 && window.getWorldBooks) {
+        const allBooks = window.getWorldBooks();
+        const boundEntries = [];
+
+        if (Array.isArray(allBooks)) {
+            allBooks
+                .filter(book => book && boundBookIds.includes(String(book.id)) && Array.isArray(book.entries))
+                .forEach(book => {
+                    book.entries
+                        .map(entry => normalizeEntry(entry))
+                        .filter(entry => entry && entry.enabled !== false)
+                        .filter(entry => entry.injectionPosition === position)
+                        .filter(entry => keywordMatched(entry, contextText))
+                        .forEach(entry => {
+                            boundEntries.push({
+                                ...entry,
+                                __bookName: book.name || '未命名世界书'
+                            });
+                        });
+                });
+        }
+
+        if (boundEntries.length > 0) {
+            boundEntries.sort((a, b) => {
+                if (position === 'system_depth') {
+                    if (a.systemDepth !== b.systemDepth) return a.systemDepth - b.systemDepth;
+                    return a.order - b.order;
+                }
+                return a.order - b.order;
+            });
+
+            let section = `${titleMap[position]}:\n`;
+            boundEntries.forEach(entry => {
+                section += `〔${entry.__bookName}〕\n${formatEntry(entry)}\n\n`;
+            });
+            sections.push(section.trim());
+        }
+    }
+
+    return sections.join('\n\n').trim();
+};
+
+window.getWorldBookContextForFriendByPosition = function(position = 'before_role', friend = null, contextText = '') {
+    return window.imApp.getWorldBookContextForFriendByPosition(position, friend, contextText);
+};
+
 window.getImFriends = () => window.imData.friends;
 
 window.addImFriend = async function(friendData) {
@@ -1819,7 +2073,7 @@ window.addImFriend = async function(friendData) {
     const saved = window.imApp.commitFriendsChange
         ? await window.imApp.commitFriendsChange(() => {
             window.imData.friends.push(friend);
-        }, { silent: true })
+        }, { friendId: friend.id, silent: true })
         : false;
 
     if (!saved) {

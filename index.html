@@ -23,10 +23,12 @@
     <link rel="stylesheet" href="css/worldbook.css">
     <link rel="stylesheet" href="css/imessage.css">
     <link rel="stylesheet" href="css/pay.css">
+    <link rel="stylesheet" href="css/bstage.css">
     
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
+    <link rel="stylesheet" href="css/loves.css">
     <!-- App Styles -->
     <link rel="stylesheet" href="css/settings.css">
 </head>
@@ -193,7 +195,7 @@
                         </div>
                         <span class="app-name">AO3</span>
                     </div>
-                    <div class="app-item loves-app" id="app-loves-btn" style="cursor: pointer;">
+                    <div class="app-item loves-app" id="app-loves-btn" style="cursor: pointer;" onclick="if(window.lovesApp) window.lovesApp.open();">
                         <div class="app-icon icon-placeholder" id="app-icon-8" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;">
                             <i class="fas fa-heart"></i>
                         </div>
@@ -675,14 +677,8 @@
 
             <!-- Payment Method Selection Centered Modal (Flat) -->
             <div class="bottom-sheet-overlay detail-sheet-overlay wb-centered-modal-overlay" id="pay-method-selection-sheet" style="z-index: 1300; background: rgba(0,0,0,0.5);">
-                <div class="wb-centered-modal-card" style="box-shadow: none; border-radius: 20px; background: #fff;">
-                    <div class="wb-centered-modal-header" style="border-bottom: 1px solid #f2f2f7; padding: 16px;">
-                        <div class="wb-centered-modal-title" style="font-size: 16px; font-weight: 600;">选择支付方式</div>
-                        <div class="wb-centered-modal-close" style="position: absolute; right: 16px; top: 16px; font-size: 18px; color: #8e8e93; cursor: pointer;" onclick="window.closeView(document.getElementById('pay-method-selection-sheet'))">
-                            <i class="fas fa-times"></i>
-                        </div>
-                    </div>
-                    <div class="wb-centered-modal-body" style="padding: 16px; background: #f2f2f7;">
+                <div class="wb-centered-modal-card" style="box-shadow: none; border-radius: 24px; background: #fff; overflow: hidden;">
+                    <div class="wb-centered-modal-body" style="padding: 20px 16px 16px; background: #f2f2f7;">
                         <div id="pay-method-selection-list" style="display: flex; flex-direction: column; gap: 10px;">
                             <!-- Cards will be injected here via JS -->
                         </div>
@@ -2523,9 +2519,856 @@
     </div>
 
 
-    <!-- 引入存储模块 (IndexedDB) -->
+    
+<!-- ========================================== -->
+            <!-- LOVES APP VIEW -->
+            <!-- ========================================== -->
+            <div class="app-view loves-view" id="loves-view">
+                <div class="loves-header" style="border-bottom: none;">
+                    <div class="loves-back-btn" id="loves-back-btn" style="font-size: 24px; font-weight: 800; color: #111; cursor: pointer; padding: 5px;">
+                        Loves
+                    </div>
+                </div>
+                <div class="loves-content">
+                    <div class="loves-top-friends-scroll" id="loves-top-friends-scroll">
+                        <!-- Friends will be injected here -->
+                    </div>
+                    <!-- 详情操作区 -->
+                    <div class="loves-detail-area" id="loves-detail-area" style="display: none; padding: 30px 20px; align-items: center; flex-direction: column; gap: 15px;">
+                        <div class="loves-detail-avatar" style="width: 80px; height: 80px; border-radius: 50%; background: #f2f2f7; display: flex; justify-content: center; align-items: center; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                            <img src="" id="loves-detail-avatar-img" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                            <i class="fas fa-user" id="loves-detail-avatar-icon" style="font-size: 40px; color: #c7c7cc;"></i>
+                        </div>
+                        <div class="loves-detail-name" id="loves-detail-name" style="font-size: 20px; font-weight: 600; color: #111;">Name</div>
+                        
+                        <div class="loves-detail-actions" style="margin-top: 10px; width: 100%; display: flex; justify-content: center; gap: 10px;">
+                            <div class="loves-btn loves-invite-btn" id="loves-invite-btn" style="display: none; background: #111; color: #fff; padding: 12px 30px; border-radius: 24px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">邀请</div>
+                            <div class="loves-btn loves-enter-btn" id="loves-enter-btn" style="display: none; background: #f2f2f7; color: #111; padding: 12px 30px; border-radius: 24px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">进入</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- LOVERS SPACE VIEW (全屏界面) -->
+            <!-- ========================================== -->
+            <div class="app-view lovers-space-view" id="lovers-space-view" style="padding-top: 0;">
+                <!-- 悬浮返回按钮，高度与 Loves 顶栏一致 -->
+                <div class="lovers-space-header" style="padding-top: var(--safe-top); height: max(44px, calc(44px + var(--safe-top))); display: flex; align-items: center; justify-content: space-between; padding-left: 16px; padding-right: 16px; position: absolute; top: 0; left: 0; width: 100%; z-index: 20; pointer-events: none;">
+                    <div id="lovers-space-back-btn" style="width: 32px; height: 32px; border-radius: 16px; background: rgba(0,0,0,0.06); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #666; display: flex; justify-content: center; align-items: center; cursor: pointer; pointer-events: auto;">
+                        <i class="fas fa-chevron-left" style="font-size: 16px; transform: translateX(-1px);"></i>
+                    </div>
+                    <div id="lovers-space-menu-btn" style="width: 32px; height: 32px; border-radius: 16px; background: rgba(0,0,0,0.06); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #666; display: flex; justify-content: center; align-items: center; cursor: pointer; pointer-events: auto;">
+                        <i class="fas fa-ellipsis-h" style="font-size: 16px;"></i>
+                    </div>
+                </div>
+
+                <div class="lovers-space-scrollable" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; background: #fff;">
+                    
+                    <!-- 为顶部留出少量安全区，不占用完整导航栏高度 -->
+                    <div style="height: max(20px, var(--safe-top)); flex-shrink: 0;"></div>
+                    
+                    <!-- 核心信息栏 (头像 & 纪念日) -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px; flex-shrink: 0; margin-top: 10px;">
+                        <!-- 左侧双头像重叠 -->
+                        <div style="display: flex; align-items: center;">
+                            <!-- 我的头像 -->
+                            <div style="position: relative; width: 70px; height: 70px; border-radius: 50%; border: 3px solid #fff; background: #e5e5ea; overflow: hidden; z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; justify-content: center; align-items: center;">
+                                <img src="" id="lovers-space-user-avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i class="fas fa-user" id="lovers-space-user-icon" style="font-size: 30px; color: #ccc;"></i>
+                            </div>
+                            <!-- 好友的头像 -->
+                            <div style="position: relative; width: 70px; height: 70px; border-radius: 50%; border: 3px solid #fff; background: #e5e5ea; overflow: hidden; z-index: 1; margin-left: -20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; justify-content: center; align-items: center;">
+                                <img src="" id="lovers-space-friend-avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i class="fas fa-user" id="lovers-space-friend-icon" style="font-size: 30px; color: #ccc;"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- 右侧圆形天数 -->
+                        <div style="padding: 10px 20px; border-radius: 20px; background: #fff0f3; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 60px;">
+                            <span style="font-size: 20px; font-weight: 800; color: #ff9bb3; line-height: 1;">1</span>
+                            <span style="font-size: 11px; color: #ff9bb3; font-weight: 600; margin-top: 2px;">days</span>
+                        </div>
+                    </div>
+
+                    <!-- Tabs 切换栏 -->
+                    <div class="lovers-space-tabs-container" style="position: relative; display: flex; justify-content: center; margin-top: 10px; flex-shrink: 0; background: #fff; padding-bottom: 5px;">
+                        <div class="lovers-space-tab active" data-tab="moments" style="padding: 12px 16px 10px; font-size: 15px; font-weight: 600; color: #111; cursor: pointer; transition: color 0.3s;">动态</div>
+                        <div class="lovers-space-tab" data-tab="devices" style="padding: 12px 16px 10px; font-size: 15px; font-weight: 600; color: #8e8e93; cursor: pointer; transition: color 0.3s;">设备</div>
+                        <div class="lovers-space-tab" data-tab="calendar" style="padding: 12px 16px 10px; font-size: 15px; font-weight: 600; color: #8e8e93; cursor: pointer; transition: color 0.3s;">日历</div>
+                        <div class="lovers-space-tab" data-tab="others" style="padding: 12px 16px 10px; font-size: 15px; font-weight: 600; color: #8e8e93; cursor: pointer; transition: color 0.3s;">其他</div>
+                        <div class="lovers-space-tab-indicator" id="lovers-space-tab-indicator" style="position: absolute; bottom: 0; width: 30px; height: 3px; border-radius: 3px; background: #ff9bb3; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);"></div>
+                    </div>
+
+                    <!-- Tab 内容区 -->
+                    <div class="lovers-space-tab-content-area" style="flex: 1; position: relative;">
+                        <!-- 动态面板 -->
+                        <div class="lovers-space-panel active" id="lovers-panel-moments" style="flex-direction: column; background: #fafafa;">
+                            <div id="lovers-moments-list" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 100px; display: none;">
+                                <!-- 由 JS 注入 -->
+                            </div>
+                            <div id="lovers-moments-empty" style="position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; color: #8e8e93; gap: 10px; pointer-events: none;">
+                                <i class="far fa-comment-dots" style="font-size: 30px; color: #ccc;"></i>
+                                <span style="font-size: 13px;">暂无动态</span>
+                            </div>
+                        </div>
+                        <!-- 设备面板 -->
+                        <div class="lovers-space-panel" id="lovers-panel-devices" style="flex-direction: column; color: #111; gap: 15px; padding: 20px; align-items: stretch; justify-content: flex-start;">
+                            <div id="lovers-devices-list" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                                <!-- 设备由 JS 注入 -->
+                            </div>
+                            
+                            <!-- 新增：共享相册 -->
+                            <div style="font-size: 18px; font-weight: 700; color: #111; margin-top: 10px; margin-bottom: 5px;">应用共享</div>
+                            <div id="lovers-shared-album-btn" style="background: #f8f8f8; border-radius: 16px; padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                                <i class="fas fa-images" style="font-size: 24px; color: #ff9bb3; width: 30px; text-align: center;"></i>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #111;">共享相册</div>
+                                    <div style="font-size: 13px; color: #8e8e93; margin-top: 2px;">记录我们的点点滴滴</div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color: #c7c7cc;"></i>
+                            </div>
+                        </div>
+                        <!-- 日历面板 -->
+                        <div class="lovers-space-panel" id="lovers-panel-calendar" style="flex-direction: column; align-items: stretch; padding: 16px; background: #fafafa;">
+                            
+                            <!-- 标题大小的年份与月份 (可选择) -->
+                            <div style="display: flex; align-items: baseline; margin-bottom: 15px; padding-left: 4px; position: relative;">
+                                <div id="lovers-calendar-year-month-display" style="display: flex; align-items: baseline; gap: 6px;">
+                                    <span id="lovers-calendar-year-display" style="font-size: 28px; font-weight: 800; color: #111; letter-spacing: -0.5px;">2026年</span>
+                                    <span id="lovers-calendar-month-display" style="font-size: 18px; font-weight: 600; color: #ff9bb3;">4月</span>
+                                    <i class="fas fa-chevron-down" style="font-size: 12px; color: #8e8e93; margin-left: 4px; position: relative; top: -3px;"></i>
+                                </div>
+                                <input type="month" id="lovers-calendar-month-picker" style="position: absolute; left: 0; top: 0; width: 150px; height: 100%; opacity: 0; cursor: pointer;">
+                            </div>
+
+                            <!-- 顶部日期选择 (滑动组件) -->
+                            <div style="display: flex; align-items: center; margin-bottom: 20px; background: #fff; border-radius: 16px; padding: 12px 0; box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow-x: auto; scrollbar-width: none;">
+                                <div id="lovers-calendar-dates" style="display: flex; gap: 10px; padding: 0 12px; min-width: max-content;">
+                                    <!-- 由 JS 注入日期 -->
+                                </div>
+                            </div>
+                            
+                            <div style="font-size: 18px; font-weight: 700; color: #111; margin-bottom: 12px; padding-left: 4px;">行程安排</div>
+                            
+                            <!-- 日程列表 (竖向时间线) -->
+                            <div id="lovers-calendar-list" style="display: flex; flex-direction: column; padding-bottom: 100px; position: relative;">
+                                <!-- 由 JS 注入行程 -->
+                            </div>
+                        </div>
+                        <!-- 其他面板 -->
+                        <div class="lovers-space-panel" id="lovers-panel-others" style="justify-content: center; align-items: center; flex-direction: column; color: #8e8e93; gap: 10px;">
+                            <i class="fas fa-ellipsis-h" style="font-size: 30px; color: #ccc;"></i>
+                            <span style="font-size: 13px;">其他功能</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 悬浮发帖加号按钮 -->
+                <div id="lovers-space-fab" onclick="window.lovesApp && window.lovesApp.openPublishView()" style="position: absolute; bottom: 30px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: #ff9bb3; color: white; display: flex; justify-content: center; align-items: center; font-size: 24px; box-shadow: 0 4px 12px rgba(255, 155, 179, 0.4); z-index: 9999; cursor: pointer; pointer-events: auto; transition: transform 0.1s;">
+                    <i class="fas fa-plus"></i>
+                </div>
+
+            </div>
+
+            <!-- 发布动态弹窗 (底部抽屉) -->
+            <div class="bottom-sheet-overlay detail-sheet-overlay" id="lovers-publish-view" style="z-index: 1000;">
+                <div class="bottom-sheet" style="height: 85%; display: flex; flex-direction: column; background: #fff;">
+                    <div class="sheet-handle"></div>
+                    <div class="sheet-title" style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px; margin-bottom: 10px;">
+                        <div id="lovers-publish-cancel" style="font-size: 16px; color: #111; cursor: pointer; font-weight: normal;">取消</div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;">发布动态</div>
+                        <div id="lovers-publish-btn" style="font-size: 14px; background: #ff9bb3; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600; cursor: pointer;">发布</div>
+                    </div>
+                    <div class="detail-sheet-content" style="flex: 1; padding: 10px 16px; overflow-y: auto;">
+                        <textarea id="lovers-publish-text" placeholder="分享这一刻的心情..." style="width: 100%; min-height: 120px; border: none; outline: none; font-size: 16px; resize: none; margin-bottom: 20px; color: #111;"></textarea>
+                        <div id="lovers-publish-images-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div id="lovers-publish-add-img-btn" style="aspect-ratio: 1/1; background: #f2f2f7; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #8e8e93; font-size: 30px; cursor: pointer;">
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <!-- 预览图会插在这里 -->
+                        </div>
+                        <input type="file" id="lovers-publish-file-input" accept="image/*" multiple style="display: none;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加日程弹窗 (底部抽屉) -->
+            <div class="bottom-sheet-overlay detail-sheet-overlay" id="lovers-schedule-view" style="z-index: 1010;">
+                <div class="bottom-sheet" style="height: auto; padding-bottom: 20px; display: flex; flex-direction: column; background: #f2f2f7;">
+                    <div class="sheet-handle"></div>
+                    <div class="sheet-title" style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px; margin-bottom: 15px;">
+                        <div id="lovers-schedule-cancel" style="font-size: 16px; color: #111; cursor: pointer; font-weight: normal;" onclick="window.closeView(document.getElementById('lovers-schedule-view'))">取消</div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;">添加日程</div>
+                        <div id="lovers-schedule-btn" style="font-size: 14px; background: #ff9bb3; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600; cursor: pointer;">添加</div>
+                    </div>
+                    <div class="detail-sheet-content" style="padding: 0 16px;">
+                        <div style="background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <input type="text" id="lovers-schedule-text" placeholder="标题 (例如: 约会、看电影)" style="width: 100%; border: none; outline: none; font-size: 16px; color: #111; background: transparent;">
+                        </div>
+                        
+                        <div style="background: #fff; border-radius: 12px; margin-top: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: hidden;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f2f2f7;">
+                                <div style="color: #111; font-size: 15px;">日期</div>
+                                <div style="display: flex; align-items: center;">
+                                    <input type="date" id="lovers-schedule-date" style="border: none; outline: none; color: #007aff; font-size: 15px; text-align: right; background: transparent; font-family: -apple-system, sans-serif;">
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f2f2f7;">
+                                <div style="color: #111; font-size: 15px;">时间</div>
+                                <div style="display: flex; align-items: center;">
+                                    <input type="time" id="lovers-schedule-time" style="border: none; outline: none; color: #007aff; font-size: 15px; text-align: right; background: transparent; font-family: -apple-system, sans-serif;">
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;">
+                                <div style="color: #111; font-size: 15px; width: 60px;">地点</div>
+                                <input type="text" id="lovers-schedule-location" placeholder="添加位置" style="flex: 1; border: none; outline: none; color: #8e8e93; font-size: 15px; text-align: right; background: transparent;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- LOVERS FRIEND PHONE VIEW (全屏界面) -->
+            <!-- ========================================== -->
+            <div class="app-view lovers-friend-phone-view" id="lovers-friend-phone-view" style="background-color: #fff; background-size: cover; background-position: center; padding-top: 0;">
+                
+                <!-- 悬浮返回按钮 -->
+                <div id="friend-phone-back-btn" style="position: absolute; top: max(16px, calc(10px + var(--safe-top))); left: 20px; width: 36px; height: 36px; border-radius: 18px; background: rgba(0,0,0,0.06); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; justify-content: center; align-items: center; color: #666; cursor: pointer; z-index: 10;">
+                    <i class="fas fa-chevron-left" style="transform: translateX(-1px);"></i>
+                </div>
+
+                <!-- 中间 6 个 App (使用 Grid) -->
+                <div style="padding: max(80px, calc(60px + var(--safe-top))) 30px 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px 15px;">
+                    <!-- Music -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-music">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #ff2d55; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 30px; box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3);"><i class="fas fa-music"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">Music</div>
+                    </div>
+                    <!-- 健康 -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-health">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #fff; color: #ff2d55; display: flex; justify-content: center; align-items: center; font-size: 32px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);"><i class="fas fa-heart"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">健康</div>
+                    </div>
+                    <!-- Pay -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-pay">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #007aff; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);"><i class="fas fa-wallet"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">Pay</div>
+                    </div>
+                    <!-- Game -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-game">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #000; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 30px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);"><i class="fas fa-gamepad"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">Game</div>
+                    </div>
+                    <!-- 电话 -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-call">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #34c759; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 28px; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); transform: rotate(90deg);"><i class="fas fa-phone"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">电话</div>
+                    </div>
+                    <!-- 文件 (Files) -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;" id="friend-phone-app-files">
+                        <div style="width: 60px; height: 60px; border-radius: 14px; background: #fff; color: #007aff; display: flex; justify-content: center; align-items: center; font-size: 30px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);"><i class="far fa-folder-open"></i></div>
+                        <div style="font-size: 12px; color: #333; font-weight: 500;">文件</div>
+                    </div>
+                </div>
+
+                <!-- 好友手机：文件 (Files) -->
+                <div class="app-view friend-files-view" id="friend-files-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #f2f2f7; padding-top: 0;">
+                    <!-- 顶栏 -->
+                    <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: #f2f2f7; box-sizing: border-box;">
+                        <div style="height: 50px; display: flex; align-items: center; justify-content: space-between; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                            <div id="friend-files-back-btn" style="font-size: 20px; color: #007aff; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                            <div style="font-size: 20px; color: #007aff; cursor: pointer;"><i class="fas fa-ellipsis-h"></i></div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; padding: 10px 20px;" id="friend-files-content">
+                        <div style="font-size: 32px; font-weight: 800; color: #111; margin-bottom: 20px;">浏览</div>
+                        
+                        <!-- Search Bar -->
+                        <div style="width: 100%; height: 36px; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; color: #8e8e93; font-size: 16px; padding: 0 10px; margin-bottom: 30px;">
+                            <i class="fas fa-search" style="margin-right: 8px;"></i>
+                            <input type="text" placeholder="搜索" style="flex: 1; background: transparent; border: none; outline: none; font-size: 16px;">
+                        </div>
+
+                        <div style="font-size: 20px; font-weight: 700; color: #111; margin-bottom: 15px;">位置</div>
+                        <div style="background: #fff; border-radius: 12px; margin-bottom: 30px;">
+                            <div style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f0f0f0;">
+                                <i class="fas fa-cloud" style="color: #007aff; font-size: 22px; margin-right: 15px;"></i>
+                                <span style="font-size: 17px; font-weight: 500; color: #111; flex: 1;">iCloud 云盘</span>
+                                <i class="fas fa-chevron-right" style="color: #c7c7cc;"></i>
+                            </div>
+                            <div style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f0f0f0;">
+                                <i class="fas fa-mobile-alt" style="color: #007aff; font-size: 22px; margin-right: 15px; width: 22px; text-align: center;"></i>
+                                <span style="font-size: 17px; font-weight: 500; color: #111; flex: 1;">我的 iPhone</span>
+                                <i class="fas fa-chevron-right" style="color: #c7c7cc;"></i>
+                            </div>
+                            <div style="display: flex; align-items: center; padding: 15px;">
+                                <i class="fas fa-trash-alt" style="color: #007aff; font-size: 22px; margin-right: 15px;"></i>
+                                <span style="font-size: 17px; font-weight: 500; color: #111; flex: 1;">最近删除</span>
+                                <i class="fas fa-chevron-right" style="color: #c7c7cc;"></i>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 20px; font-weight: 700; color: #111; margin-bottom: 15px;">个人收藏</div>
+                        <div style="background: #fff; border-radius: 12px;">
+                            <div style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f0f0f0;">
+                                <i class="fas fa-arrow-down" style="color: #007aff; font-size: 20px; margin-right: 15px; background: #e5e5ea; width: 26px; height: 26px; border-radius: 50%; display: flex; justify-content: center; align-items: center;"></i>
+                                <span style="font-size: 17px; font-weight: 500; color: #111; flex: 1;">下载项</span>
+                                <i class="fas fa-chevron-right" style="color: #c7c7cc;"></i>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 20px; font-weight: 700; color: #111; margin-top: 30px; margin-bottom: 15px;">标签</div>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;" id="friend-files-tags-list">
+                            <!-- 标签内容将由 JS 注入 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 好友手机：健康 -->
+                <div class="app-view friend-health-view" id="friend-health-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #f4f4f5; padding-top: 0;">
+                    <!-- 顶栏 -->
+                    <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: #fff; box-sizing: border-box;">
+                        <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                            <div id="friend-health-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #111; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                            <div style="font-size: 17px; font-weight: 600; color: #111;">健康</div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; padding: 20px 16px;" id="friend-health-content">
+                        <!-- JS overrides this content -->
+                    </div>
+                </div>
+
+                <!-- 好友手机：Pay -->
+                <div class="app-view friend-pay-view" id="friend-pay-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #f4f4f5; padding-top: 0;">
+                    <!-- 顶栏 -->
+                    <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: transparent; box-sizing: border-box;">
+                        <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                            <div id="friend-pay-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #111; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                            <div style="font-size: 17px; font-weight: 700; color: #111;">Wallet</div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto;" id="friend-pay-content">
+                        <div style="background: #007aff; color: #fff; padding: 20px 16px 30px; display: flex; flex-direction: column; align-items: center;">
+                            <div style="font-size: 14px; opacity: 0.9;">总资产 (元)</div>
+                            <div style="font-size: 40px; font-weight: 700; margin-top: 5px;">24,560.88</div>
+                        </div>
+
+                        <div style="padding: 20px 16px;">
+                            <div style="font-size: 18px; font-weight: 600; color: #111; margin-bottom: 15px;">银行卡</div>
+                            <!-- 银行卡 1 -->
+                            <div style="background: linear-gradient(135deg, #e73827, #ff6b6b); border-radius: 16px; padding: 20px; color: #fff; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(231, 56, 39, 0.3);">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                                    <div style="font-size: 16px; font-weight: 600;">招商银行储蓄卡</div>
+                                    <i class="fab fa-cc-visa" style="font-size: 24px;"></i>
+                                </div>
+                                <div style="font-size: 20px; font-family: monospace; letter-spacing: 2px;">**** **** **** 8888</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                                    <div style="font-size: 12px; opacity: 0.9;">活期余额</div>
+                                    <div style="font-size: 16px; font-weight: 600;">¥ 12,050.00</div>
+                                </div>
+                            </div>
+
+                            <!-- 银行卡 2 -->
+                            <div style="background: linear-gradient(135deg, #1c1c1e, #3a3a3c); border-radius: 16px; padding: 20px; color: #fff; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                                    <div style="font-size: 16px; font-weight: 600;">工商银行信用卡</div>
+                                    <i class="fab fa-cc-mastercard" style="font-size: 24px;"></i>
+                                </div>
+                                <div style="font-size: 20px; font-family: monospace; letter-spacing: 2px;">**** **** **** 1234</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                                    <div style="font-size: 12px; opacity: 0.9;">可用额度</div>
+                                    <div style="font-size: 16px; font-weight: 600;">¥ 38,500.00</div>
+                                </div>
+                            </div>
+
+                            <div style="font-size: 18px; font-weight: 600; color: #111; margin-bottom: 15px;">近期收支</div>
+                            <div style="background: #fff; border-radius: 16px; padding: 0 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f2f2f7;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #ff9500; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 18px;"><i class="fas fa-utensils"></i></div>
+                                        <div>
+                                            <div style="font-size: 15px; font-weight: 600; color: #111;">餐饮美食</div>
+                                            <div style="font-size: 12px; color: #8e8e93;">今天 12:30</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 16px; font-weight: 600; color: #111;">-128.00</div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #34c759; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 18px;"><i class="fas fa-money-bill-wave"></i></div>
+                                        <div>
+                                            <div style="font-size: 15px; font-weight: 600; color: #111;">转账收款</div>
+                                            <div style="font-size: 12px; color: #8e8e93;">昨天 18:45</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 16px; font-weight: 600; color: #34c759;">+500.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 好友手机：Game -->
+                <div class="app-view friend-game-view" id="friend-game-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #1c1c1e; padding-top: 0;">
+                    <!-- 顶栏 -->
+                    <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: 1px solid #333; flex-shrink: 0; background: #000; box-sizing: border-box;">
+                        <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                            <div id="friend-game-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #fff; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                            <div style="font-size: 17px; font-weight: 600; color: #fff;">Game Center</div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; padding: 20px 16px;" id="friend-game-content">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 30px;">
+                            <div style="width: 70px; height: 70px; border-radius: 50%; background: #333; display: flex; justify-content: center; align-items: center; font-size: 30px; color: #fff; border: 2px solid #007aff;">
+                                <i class="fas fa-user-ninja"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 20px; font-weight: 700; color: #fff;">Player One</div>
+                                <div style="font-size: 13px; color: #8e8e93; margin-top: 4px;">游戏总时长: 1,240 小时</div>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 15px;">常玩的游戏</div>
+                        
+                        <!-- 游戏列表 -->
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <!-- LOL -->
+                            <div style="background: #2c2c2e; border-radius: 16px; padding: 16px; display: flex; gap: 15px; align-items: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: linear-gradient(135deg, #0a1428, #005a82); display: flex; justify-content: center; align-items: center; font-size: 30px; color: #c8aa6e;">
+                                    <i class="fab fa-fantasy-flight-games"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #fff;">League of Legends</div>
+                                    <div style="font-size: 13px; color: #8e8e93; margin-top: 4px;">时长: 850 小时</div>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                        <div style="background: rgba(200, 170, 110, 0.2); color: #c8aa6e; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">大师</div>
+                                        <div style="font-size: 12px; color: #8e8e93;">胜率: 56%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Valorant -->
+                            <div style="background: #2c2c2e; border-radius: 16px; padding: 16px; display: flex; gap: 15px; align-items: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: #ff4655; display: flex; justify-content: center; align-items: center; font-size: 30px; color: #fff;">
+                                    <i class="fas fa-crosshairs"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #fff;">Valorant</div>
+                                    <div style="font-size: 13px; color: #8e8e93; margin-top: 4px;">时长: 320 小时</div>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                        <div style="background: rgba(255, 70, 85, 0.2); color: #ff4655; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">钻石</div>
+                                        <div style="font-size: 12px; color: #8e8e93;">胜率: 52%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 悬浮底栏 Dock -->
+                <div style="margin-top: auto; margin-bottom: max(30px, calc(10px + var(--safe-bottom))); align-self: center; background: rgba(0,0,0,0.04); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 35px; padding: 18px 22px; display: flex; gap: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                    <!-- 设置 -->
+                    <div id="friend-phone-app-settings" style="width: 60px; height: 60px; border-radius: 14px; background: #8e8e93; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 32px; cursor: pointer;"><i class="fas fa-cog"></i></div>
+                    <!-- iMessage -->
+                    <div id="friend-phone-app-imessage" style="width: 60px; height: 60px; border-radius: 14px; background: #34c759; color: #fff; display: flex; justify-content: center; align-items: center; font-size: 30px; cursor: pointer;"><i class="fas fa-comment"></i></div>
+                    <!-- Safari -->
+                    <div id="friend-phone-app-safari" style="width: 60px; height: 60px; border-radius: 14px; background: #fff; color: #007aff; display: flex; justify-content: center; align-items: center; font-size: 34px; cursor: pointer;"><i class="far fa-compass"></i></div>
+                </div>
+            </div>
+
+            <!-- 好友手机：设置全屏/底部弹窗 -->
+            <div class="app-view friend-settings-view" id="friend-phone-settings-sheet" style="position: absolute; inset: 0; z-index: 200; flex-direction: column; background: #f2f2f7; padding-top: 0;">
+                <!-- 顶部导航栏 -->
+                <div style="padding-top: var(--safe-top); height: calc(54px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: rgba(242,242,247,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-sizing: border-box;">
+                    <div style="height: 54px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                        <div id="friend-settings-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #007aff; cursor: pointer; display: flex; align-items: center;"><i class="fas fa-chevron-left" style="margin-right: 4px;"></i><span style="font-size: 16px; font-weight: 500;">返回</span></div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;">设置</div>
+                    </div>
+                </div>
+                
+                <div class="detail-sheet-content" style="padding: 0; flex: 1; overflow-y: auto;">
+                    <!-- 顶部的搜索栏留白或大字标题占位 -->
+                    <div style="padding: 10px 20px 20px; font-size: 32px; font-weight: 800; color: #111;">设置</div>
+                    
+                    <div class="settings-group fully-rounded" style="margin: 0 16px;">
+                        <div class="settings-item" style="border-bottom: none; position: relative; padding: 12px 16px;">
+                            <div class="settings-icon" style="background-color: #007aff; width: 34px; height: 34px; border-radius: 8px;"><i class="fas fa-image"></i></div>
+                            <div class="settings-text" style="font-weight: 500; font-size: 16px; margin-left: 5px;">更换主屏幕壁纸</div>
+                            <i class="fas fa-chevron-right arrow"></i>
+                            <input type="file" id="friend-phone-bg-upload" accept="image/*" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                        </div>
+                    </div>
+                    
+                    <div class="settings-group fully-rounded" style="margin: 20px 16px 0;">
+                        <div class="settings-item" id="friend-phone-gen-settings-btn" style="border-bottom: none; cursor: pointer; padding: 12px 16px;">
+                            <div class="settings-icon" style="background-color: #5856d6; width: 34px; height: 34px; border-radius: 8px;"><i class="fas fa-wand-magic-sparkles"></i></div>
+                            <div class="settings-text" style="font-weight: 500; font-size: 16px; margin-left: 5px;">生成数据</div>
+                            <i class="fas fa-chevron-right arrow"></i>
+                        </div>
+                    </div>
+
+                    <div class="settings-group fully-rounded" style="margin: 30px 16px 20px;">
+                        <div class="settings-item" id="friend-phone-clear-old-data-btn" style="border-bottom: 1px solid var(--separator-color); cursor: pointer; padding: 12px 16px;">
+                            <div class="settings-icon" style="background-color: #ff9500; width: 34px; height: 34px; border-radius: 8px;"><i class="fas fa-broom"></i></div>
+                            <div class="settings-text" style="font-weight: 500; font-size: 16px; margin-left: 5px; color: #ff9500;">清空旧数据</div>
+                        </div>
+                        <div class="settings-item" id="friend-phone-clear-all-data-btn" style="border-bottom: none; cursor: pointer; padding: 12px 16px;">
+                            <div class="settings-icon" style="background-color: #ff3b30; width: 34px; height: 34px; border-radius: 8px;"><i class="fas fa-trash-alt"></i></div>
+                            <div class="settings-text" style="font-weight: 500; font-size: 16px; margin-left: 5px; color: #ff3b30;">清空所有数据</div>
+                        </div>
+                    </div>
+                    <div style="padding: 0 20px 20px; font-size: 13px; color: #8e8e93; line-height: 1.5; text-align: center;">
+                        "清空旧数据"仅保留最新一次生成的记录。<br>"清空所有数据"将重置该好友的所有应用数据。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 好友手机：生成设置弹窗 (底部原生风格) -->
+            <div class="bottom-sheet-overlay detail-sheet-overlay" id="friend-phone-gen-modal" style="z-index: 600;">
+                <div class="bottom-sheet" style="height: 85%; display: flex; flex-direction: column; background: #f2f2f7;">
+                    <div class="sheet-handle"></div>
+                    <div class="sheet-title" style="margin-bottom: 5px;">生成应用数据</div>
+                    <div style="font-size: 13px; color: #8e8e93; text-align: center; margin-bottom: 15px; padding: 0 20px;">请勾选需要由 AI 模拟生成的应用</div>
+                    
+                    <div class="detail-sheet-content" style="flex: 1; overflow-y: auto; padding: 0 16px 20px;">
+                        <div class="settings-group fully-rounded" id="friend-phone-apps-select" style="margin: 0;">
+                            <!-- iMessage -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #34c759; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(52,199,89,0.2);"><i class="fas fa-comment"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">短信 (iMessage)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="imessage" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Music -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #ff2d55; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(255,45,85,0.2);"><i class="fas fa-music"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">音乐 (Music)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="music" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Health -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #fff; color: #ff2d55; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);"><i class="fas fa-heart"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">健康 (Health)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="health" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Pay -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #007aff; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,122,255,0.2);"><i class="fas fa-wallet"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">钱包 (Pay)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="pay" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Game -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #000; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);"><i class="fas fa-gamepad"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">游戏 (Game)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="game" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Call -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #34c759; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(52,199,89,0.2);"><i class="fas fa-phone" style="transform: rotate(90deg);"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">电话 (Call)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="call" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Safari -->
+                            <div class="settings-item" style="border-bottom: 1px solid var(--separator-color); padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #fff; color: #007aff; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);"><i class="far fa-compass"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">浏览器 (Safari)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="safari" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                            <!-- Files -->
+                            <div class="settings-item" style="border-bottom: none; padding: 10px 16px;">
+                                <div class="settings-icon" style="background-color: #fff; color: #007aff; width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);"><i class="far fa-folder-open"></i></div>
+                                <div class="settings-text" style="font-weight: 500; margin-left: 5px;">文件 (Files)</div>
+                                <label class="gen-mini-toggle">
+                                    <input type="checkbox" class="gen-app-checkbox" value="files" checked>
+                                    <span class="gen-mini-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 底部操作按钮 -->
+                    <div style="padding: 10px 16px 20px; display: flex; gap: 15px; background: transparent; flex-shrink: 0;">
+                        <div class="sheet-action" onclick="window.closeView(document.getElementById('friend-phone-gen-modal'))" style="flex: 1; margin: 0; background: #e5e5ea; color: #111; border-radius: 14px; font-weight: 600; padding: 14px 0; font-size: 16px;">取消</div>
+                        <div class="sheet-action" id="friend-phone-gen-confirm-btn" style="flex: 1; margin: 0; background: #007aff; color: #fff; border-radius: 14px; font-weight: 600; padding: 14px 0; font-size: 16px; box-shadow: 0 4px 15px rgba(0,122,255,0.3);">生成</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 好友手机：iMessage 全屏视图 -->
+            <div class="app-view friend-imessage-view" id="friend-imessage-view" style="position: absolute; inset: 0; z-index: 200; flex-direction: column; background: #f4f4f5; padding-top: 0;">
+                <!-- 顶部导航栏 -->
+                <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-sizing: border-box;">
+                    <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%;">
+                        <div id="friend-imsg-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #111; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;" id="friend-imsg-title">信息</div>
+                    </div>
+                </div>
+
+                <!-- 切换面板内容区 -->
+                <div style="flex: 1; position: relative; overflow: hidden;">
+                    <!-- "聊天" 面板 -->
+                    <div id="friend-imsg-panel-chat" style="position: absolute; inset: 0; display: flex; flex-direction: column; background: transparent; padding: 16px 16px 0; gap: 12px; overflow-y: auto;">
+                        <!-- User (自己) 的会话列表项 -->
+                        <div id="friend-imsg-chat-with-user-item" style="display: flex; align-items: center; padding: 16px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.03); cursor: pointer;">
+                            <div style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: #e5e5ea; display: flex; justify-content: center; align-items: center; margin-right: 15px; flex-shrink: 0;">
+                                <img src="" id="friend-imsg-user-avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i class="fas fa-user" id="friend-imsg-user-icon" style="font-size: 24px; color: #ccc;"></i>
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="font-size: 17px; font-weight: 600; color: #111;" id="friend-imsg-user-name">我</div>
+                                    <div style="font-size: 13px; color: #8e8e93;">刚刚</div>
+                                </div>
+                                <div style="font-size: 15px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">[消息记录]</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- "我" 面板 -->
+                    <div id="friend-imsg-panel-me" style="display: none; position: absolute; inset: 0; flex-direction: column; background: #f2f2f7; align-items: center;">
+                        <div style="padding: 40px 20px; display: flex; flex-direction: column; align-items: center; width: 100%;">
+                            <div style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #fff; overflow: hidden; background: #e5e5ea; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                                <img src="" id="friend-imsg-me-avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i class="fas fa-user" id="friend-imsg-me-icon" style="font-size: 40px; color: #ccc;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 700; color: #111; margin-bottom: 30px;" id="friend-imsg-me-name">TA</div>
+                            
+                            <div class="settings-group fully-rounded" style="margin: 0 16px; width: 100%; box-sizing: border-box;">
+                                <div class="settings-item" id="friend-imsg-switch-account-btn" style="border-bottom: none; justify-content: center; cursor: pointer;">
+                                    <div class="settings-text" style="color: #007aff; font-weight: 600; text-align: center; width: 100%;">切换账号</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 切换账号全局居中卡片弹窗 -->
+                <div class="bottom-sheet-overlay detail-sheet-overlay wb-centered-modal-overlay" id="friend-imsg-account-modal" style="z-index: 600;">
+                    <div class="wb-centered-modal-card wb-group-modal-card" style="height: auto; max-height: 60%; display: flex; flex-direction: column; background: #f2f2f7; position: relative;">
+                        <div style="position: absolute; right: 16px; top: 16px; font-size: 20px; color: #8e8e93; cursor: pointer; z-index: 10;" onclick="window.closeView(document.getElementById('friend-imsg-account-modal'))">
+                            <i class="fas fa-times"></i>
+                        </div>
+                        <div class="detail-sheet-content" style="flex: 1; overflow-y: auto; padding: 40px 16px 16px;">
+                            <div id="friend-imsg-accounts-list" style="background: #fff; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+                                <!-- 账号列表注入 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部 Tab 栏 -->
+                <div style="display: flex; border-top: none; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); flex-shrink: 0; height: 50px;">
+                    <div id="friend-imsg-tabbar-chat" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #111; cursor: pointer;">
+                        <i class="fas fa-comment" style="font-size: 24px; margin-bottom: 2px;"></i>
+                        <div style="font-size: 10px; font-weight: 500;">聊天</div>
+                    </div>
+                    <div id="friend-imsg-tabbar-me" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #8e8e93; cursor: pointer;">
+                        <i class="fas fa-user" style="font-size: 24px; margin-bottom: 2px;"></i>
+                        <div style="font-size: 10px; font-weight: 500;">我</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 反向聊天室 -->
+            <div class="app-view reverse-chat-view" id="friend-reverse-chat-view" style="position: absolute; inset: 0; z-index: 250; flex-direction: column; background: #f4f4f5; padding-top: 0;">
+                <!-- 聊天顶栏 -->
+                <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-sizing: border-box;">
+                    <div style="height: 50px; display: flex; align-items: center; justify-content: space-between; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                        <div id="reverse-chat-back-btn" style="font-size: 20px; color: #111; cursor: pointer; display: flex; align-items: center;">
+                            <i class="fas fa-chevron-left" style="margin-right: 5px;"></i> <span style="font-size: 16px; font-weight: 500;">返回</span>
+                        </div>
+                        <div style="position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center;">
+                            <div style="width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: #e5e5ea; display: flex; justify-content: center; align-items: center; margin-bottom: 2px;">
+                                <img src="" id="reverse-chat-user-avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i class="fas fa-user" id="reverse-chat-user-icon" style="font-size: 14px; color: #ccc;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #111;" id="reverse-chat-user-name">我</div>
+                        </div>
+                        <div style="font-size: 20px; color: #111; cursor: pointer;"><i class="fas fa-video"></i></div>
+                    </div>
+                </div>
+
+                <!-- 反向聊天内容区 (TA的视角) -->
+                <div id="reverse-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 15px; background: transparent;">
+                    <div style="text-align: center; color: #8e8e93; font-size: 12px; margin-bottom: 20px;">此时以 TA 的视角查看你们的聊天记录</div>
+                    <!-- 气泡由 JS 动态注入。如果是 'me' 发的，气泡在左侧。如果是 TA 发的，气泡在右侧 (绿色) -->
+                </div>
+
+                <!-- 假底栏 -->
+                <div style="display: flex; align-items: center; padding: 10px 16px 10px; border-top: none; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); gap: 10px;">
+                    <div style="font-size: 24px; color: #8e8e93;"><i class="fas fa-plus"></i></div>
+                    <div style="flex: 1; height: 40px; border-radius: 20px; border: none; background: #f2f2f7; padding: 0 16px; display: flex; align-items: center; color: #8e8e93; font-size: 15px;">iMessage</div>
+                    <div style="font-size: 24px; color: #8e8e93;"><i class="fas fa-microphone"></i></div>
+                </div>
+            </div>
+
+            <!-- 好友手机：Safari 浏览器 -->
+            <div class="app-view friend-safari-view" id="friend-safari-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #f4f4f5; padding-top: 0; transition: background 0.3s ease;">
+                <!-- 顶部导航栏 -->
+                <div id="friend-safari-topbar" style="padding-top: var(--safe-top); height: calc(54px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: none; flex-shrink: 0; background: #f4f4f5; box-sizing: border-box; transition: background 0.3s ease;">
+                    <div style="height: 54px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                        <div id="friend-safari-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #111; cursor: pointer; transition: color 0.3s ease;"><i class="fas fa-chevron-left"></i></div>
+                        <div id="friend-safari-search-bar" style="flex: 1; margin: 0 40px; height: 38px; background: #e5e5ea; border-radius: 19px; display: flex; justify-content: center; align-items: center; color: #8e8e93; font-size: 15px; font-weight: 500; transition: all 0.3s ease;">
+                            <i class="fas fa-lock" style="margin-right: 6px; font-size: 11px;"></i> Search or enter website
+                        </div>
+                    </div>
+                </div>
+
+                <div style="flex: 1; position: relative; overflow: hidden; margin-top: 15px;">
+                    <!-- 普通模式内容区 -->
+                    <div id="friend-safari-normal-mode" style="position: absolute; inset: 0; padding: 30px 20px; overflow-y: auto; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -2px 15px rgba(0,0,0,0.03); transition: opacity 0.3s ease, transform 0.3s ease;">
+                        <div style="font-size: 20px; font-weight: 800; color: #111; margin-bottom: 20px; letter-spacing: -0.5px;">Favorites</div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 10px; margin-bottom: 40px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                                <div style="width: 55px; height: 55px; border-radius: 16px; background: #f4f4f5; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,0.02);"><i class="fab fa-apple"></i></div>
+                                <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Apple</div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                                <div style="width: 55px; height: 55px; border-radius: 16px; background: #f4f4f5; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,0.02);"><i class="fab fa-google"></i></div>
+                                <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Google</div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                                <div style="width: 55px; height: 55px; border-radius: 16px; background: #f4f4f5; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,0.02);"><i class="fas fa-book-open"></i></div>
+                                <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Wikipedia</div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                                <div style="width: 55px; height: 55px; border-radius: 16px; background: #f4f4f5; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #111; box-shadow: 0 2px 8px rgba(0,0,0,0.02);"><i class="fas fa-plus"></i></div>
+                                <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Add</div>
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 20px; font-weight: 800; color: #111; margin-bottom: 15px; letter-spacing: -0.5px;">Recent Searches</div>
+                        <div id="friend-safari-history-list" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- 由 JS 填充搜索记录 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 无痕模式内容区 -->
+                    <div id="friend-safari-private-mode" style="position: absolute; inset: 0; padding: 30px 20px; overflow-y: auto; background: #1c1c1e; border-radius: 24px 24px 0 0; opacity: 0; pointer-events: none; transform: translateY(20px); transition: opacity 0.3s ease, transform 0.3s ease;">
+                        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; margin-top: 10px;">
+                            <div style="width: 60px; height: 60px; background: #333; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 28px; margin-bottom: 16px;"><i class="fas fa-user-secret"></i></div>
+                            <div style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 8px;">无痕浏览</div>                        </div>
+
+                        <div style="font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 15px; letter-spacing: -0.5px;">Private Searches</div>
+                        <div id="friend-safari-private-history-list" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- 由 JS 填充无痕搜索记录 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 底部假 Dock -->
+                <div id="friend-safari-dock" style="display: flex; justify-content: space-around; align-items: center; padding: 12px 16px 12px; border-top: 1px solid #f0f0f0; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #111; font-size: 20px; transition: all 0.3s ease;">
+                    <i class="fas fa-chevron-left" style="opacity: 0.2;"></i>
+                    <i class="fas fa-chevron-right" style="opacity: 0.2;"></i>
+                    <i class="fas fa-share-square" style="opacity: 0.8;"></i>
+                    <i class="far fa-bookmark" style="opacity: 0.8;"></i>
+                    <i class="far fa-window-restore" id="friend-safari-private-btn" style="opacity: 0.8; cursor: pointer;"></i>
+                </div>
+            </div>
+
+            <!-- 好友手机：音乐 -->
+            <div class="app-view friend-music-view" id="friend-music-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #fff; padding-top: 0;">
+                <!-- 顶栏 -->
+                <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; background: #fff; box-sizing: border-box;">
+                    <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                        <div id="friend-music-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #111; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;">Music</div>
+                    </div>
+                </div>
+
+                <div style="flex: 1; overflow-y: auto; background: #fff;" id="friend-music-content">
+                    <!-- 内容由 loves.js 动态渲染 -->
+                </div>
+            </div>
+
+            <!-- 好友手机：电话 -->
+            <div class="app-view friend-phonecall-view" id="friend-phonecall-view" style="position: absolute; inset: 0; z-index: 220; flex-direction: column; background: #fff; padding-top: 0;">
+                <!-- 顶栏 -->
+                <div style="padding-top: var(--safe-top); height: calc(50px + var(--safe-top)); display: flex; flex-direction: column; justify-content: flex-end; position: relative; border-bottom: 1px solid #e5e5ea; flex-shrink: 0; background: #f9f9f9; box-sizing: border-box;">
+                    <div style="height: 50px; display: flex; align-items: center; justify-content: center; position: relative; width: 100%; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">
+                        <div id="friend-phonecall-back-btn" style="position: absolute; left: 16px; font-size: 20px; color: #007aff; cursor: pointer;"><i class="fas fa-chevron-left"></i></div>
+                        <div style="font-size: 17px; font-weight: 600; color: #111;">电话</div>
+                    </div>
+                </div>
+
+                <div style="flex: 1; overflow-y: auto; background: #fff;">
+                    <!-- 标签切换 -->
+                    <div style="display: flex; justify-content: center; margin: 15px 0;">
+                        <div style="display: flex; background: #e5e5ea; border-radius: 8px; padding: 2px;">
+                            <div id="friend-call-tab-recent" style="padding: 6px 20px; font-size: 14px; font-weight: 600; border-radius: 6px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; color: #111;">通话记录</div>
+                            <div id="friend-call-tab-contacts" style="padding: 6px 20px; font-size: 14px; font-weight: 500; color: #8e8e93; cursor: pointer; border-radius: 6px; background: transparent; box-shadow: none;">联系人</div>
+                        </div>
+                    </div>
+
+                    <!-- 通话记录列表 -->
+                    <div style="padding: 0 16px;" id="friend-call-list">
+                        <!-- 记录条目 -->
+                        <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #e5e5ea;">
+                            <i class="fas fa-phone-alt" style="color: #8e8e93; font-size: 14px; margin-right: 15px;"></i>
+                            <div style="flex: 1; display: flex; flex-direction: column;">
+                                <div style="font-size: 16px; font-weight: 600; color: #111;">我</div>
+                                <div style="font-size: 13px; color: #8e8e93; display: flex; align-items: center; gap: 4px;">
+                                    <i class="fas fa-phone-slash" style="color: #ff3b30; font-size: 10px;"></i>
+                                    <span>昨天</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-info-circle" style="color: #007aff; font-size: 20px;"></i>
+                        </div>
+                        <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #e5e5ea;">
+                            <i class="fas fa-phone-alt" style="color: #8e8e93; font-size: 14px; margin-right: 15px;"></i>
+                            <div style="flex: 1; display: flex; flex-direction: column;">
+                                <div style="font-size: 16px; font-weight: 600; color: #111;">妈妈</div>
+                                <div style="font-size: 13px; color: #8e8e93;">星期二</div>
+                            </div>
+                            <i class="fas fa-info-circle" style="color: #007aff; font-size: 20px;"></i>
+                        </div>
+                        <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #e5e5ea;">
+                            <i class="fas fa-phone-alt" style="color: #8e8e93; font-size: 14px; margin-right: 15px;"></i>
+                            <div style="flex: 1; display: flex; flex-direction: column;">
+                                <div style="font-size: 16px; font-weight: 600; color: #111;">我</div>
+                                <div style="font-size: 13px; color: #8e8e93;">星期一</div>
+                            </div>
+                            <i class="fas fa-info-circle" style="color: #007aff; font-size: 20px;"></i>
+                        </div>
+                    </div>
+
+                    <!-- 联络人列表 -->
+                    <div style="padding: 0 16px; display: none;" id="friend-contact-list"></div>
+                </div>
+            </div>
+
+            
+    <!-- 引入存储模块 -->
     <script src="js/storage/app_storage.js"></script>
     <script src="js/storage/imessage_storage.js"></script>
+    <script src="storage.js"></script>
+    <script src="js/bootstrap_globals.js"></script>
     
     <!-- 引入 iMessage 模块分段代码 -->
     <script src="js/imessage/2_core.js"></script>
@@ -2544,15 +3387,16 @@
     <script src="js/imessage/5_settings.js"></script>
     <script src="js/imessage/6_moments.js"></script>
 
-    <!-- 引入存储管理模块 (localStorage) -->
-    <script src="storage.js"></script>
+    <!-- 引入其他应用模块 -->
     <script src="js/pay.js"></script>
+    <script src="js/bstage.js"></script>
     <!-- 引入世界书核心模块脚本 -->
     <script src="js/builtin_worldbook.js"></script>
     <script src="js/worldbook.js"></script>
     <!-- 引入核心 UI 管理与设置模块脚本 -->
     <script src="js/ui.js"></script>
     <script src="js/settings.js"></script>
+    <script src="js/loves.js"></script>
     <!-- 引入主逻辑脚本 -->
     <script src="script.js"></script>
 </body>

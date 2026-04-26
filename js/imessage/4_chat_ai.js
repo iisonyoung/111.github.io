@@ -2,7 +2,6 @@
 // IMESSAGE: 4_chat_ai.js
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const { apiConfig, userState } = window;
     window.imChat = window.imChat || {};
     const imChat = window.imChat;
 
@@ -259,25 +258,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function getAiResponseContent(data) {
+        if (!data || typeof data !== 'object') return '';
+
+        const firstChoice = Array.isArray(data.choices) ? data.choices[0] : null;
+        if (!firstChoice || typeof firstChoice !== 'object') return '';
+
+        const messageContent = firstChoice.message && typeof firstChoice.message.content === 'string'
+            ? firstChoice.message.content
+            : '';
+
+        if (messageContent) return messageContent;
+
+        if (typeof firstChoice.text === 'string') return firstChoice.text;
+        if (typeof firstChoice.delta?.content === 'string') return firstChoice.delta.content;
+
+        return '';
+    }
+
+    async function fetchChatCompletionWithTimeout(endpoint, apiConfig, messages, timeoutMs = 30000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            console.log('[iMessage API] request start', {
+                endpoint,
+                model: apiConfig.model || '',
+                messageCount: Array.isArray(messages) ? messages.length : 0,
+                timeoutMs
+            });
+
+            return await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                body: JSON.stringify({
+                    model: apiConfig.model || '',
+                    messages: messages,
+                    temperature: parseFloat(apiConfig.temperature) || 0.7
+                }),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
     async function handleAiReply(friend, container, btnEl) {
-        if (!apiConfig.endpoint || !apiConfig.apiKey) {
+        console.log('handleAiReply invoked', { friend, btnEl });
+        const currentApiConfig = window.getApiConfig ? window.getApiConfig() : (window.apiConfig || {});
+        const currentUserState = window.getUserState ? window.getUserState() : (window.userState || {});
+        
+        if (!currentApiConfig.endpoint || !currentApiConfig.apiKey) {
+            console.warn('API config is missing!', currentApiConfig);
             if(window.showToast) window.showToast('请先在设置中配置 API');
             return;
         }
 
-        const typingRow = document.createElement('div');
-        typingRow.className = 'chat-row ai-row typing-row';
-        typingRow.innerHTML = `
-            <div class="typing-indicator">
-                <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-            </div>
-        `;
-        container.appendChild(typingRow);
-        window.imChat.scrollToBottom(container);
+        let typingRow = null;
 
-        if(btnEl) btnEl.style.opacity = '0.5';
+        try {
+            typingRow = document.createElement('div');
+            typingRow.className = 'chat-row ai-row typing-row';
+            typingRow.innerHTML = `
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+                </div>
+            `;
+            container.appendChild(typingRow);
+            window.imChat.scrollToBottom(container);
 
-        friend.memory = window.imApp.normalizeFriendData(friend).memory;
+            if(btnEl) btnEl.style.opacity = '0.5';
+
+            friend.memory = window.imApp.normalizeFriendData(friend).memory;
 
         let shouldSummarizeThisTurn = false;
         const summaryLimit = parseInt(friend.memory.summary?.limit, 10) || 80;
@@ -385,16 +437,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let systemPrompt = '';
         const effectiveUserPersona = window.imApp?.getEffectivePersonaForFriend
             ? window.imApp.getEffectivePersonaForFriend(friend)
-            : (userState.persona || '');
-        const systemDepthWorldBookContext = window.getGlobalWorldBookContextByPosition
-            ? window.getGlobalWorldBookContextByPosition('system_depth')
-            : '';
-        const beforeRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
-            ? window.getGlobalWorldBookContextByPosition('before_role')
-            : '';
-        const afterRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
-            ? window.getGlobalWorldBookContextByPosition('after_role')
-            : '';
+            : (currentUserState.persona || '');
+
+        let worldBookContextText = '';
+        if (friend.messages && friend.messages.length > 0) {
+            const recentMsgs = friend.messages.slice(-10);
+            worldBookContextText += recentMsgs.map(m => m.content || m.text || '').join('\n');
+        }
+        if (friend.memory && friend.memory.overview) {
+            worldBookContextText += '\n' + friend.memory.overview;
+        }
+
+        const systemDepthWorldBookContext = window.imApp?.getWorldBookContextForFriendByPosition
+            ? window.imApp.getWorldBookContextForFriendByPosition('system_depth', friend, worldBookContextText)
+            : (window.getGlobalWorldBookContextByPosition ? window.getGlobalWorldBookContextByPosition('system_depth') : '');
+        const beforeRoleWorldBookContext = window.imApp?.getWorldBookContextForFriendByPosition
+            ? window.imApp.getWorldBookContextForFriendByPosition('before_role', friend, worldBookContextText)
+            : (window.getGlobalWorldBookContextByPosition ? window.getGlobalWorldBookContextByPosition('before_role') : '');
+        const afterRoleWorldBookContext = window.imApp?.getWorldBookContextForFriendByPosition
+            ? window.imApp.getWorldBookContextForFriendByPosition('after_role', friend, worldBookContextText)
+            : (window.getGlobalWorldBookContextByPosition ? window.getGlobalWorldBookContextByPosition('after_role') : '');
 
         if (friend.type === 'group') {
             const groupMembers = window.imChat.getGroupMemberFriends(friend);
@@ -419,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (contextMessages.length > 0) {
                             const formattedContext = contextMessages.map(msg => {
-                                const role = msg.role === 'user' ? (userState.name || 'User') : member.nickname;
+                            const role = msg.role === 'user' ? (currentUserState.name || 'User') : member.nickname;
                                 return `${role}: ${msg.content || msg.text || ''}`;
                             }).join('\n');
                             infoStr += `\n该成员当前的单聊上下文(仅 ${member.nickname} 可见并可参考，其他成员不可知):\n${formattedContext}`;
@@ -431,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'None';
 
             systemPrompt = `${systemDepthWorldBookContext ? `系统深度规则（最高优先级）：\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `角色前规则：\n${beforeRoleWorldBookContext}\n\n` : ''}你正在模拟一个名为 "${friend.nickname}" 的群聊。
-你正在与 ${userState.name} 聊天，其人设为: ${effectiveUserPersona || '一个普通用户'}。
+你正在与 ${currentUserState.name || 'User'} 聊天，其人设为: ${effectiveUserPersona || '一个普通用户'}。
 
 此群内允许发言的成员名单（除用户外）：
 ${membersInfo}
@@ -463,7 +525,7 @@ ${commonMemorySections || 'None'}`;
 
             systemPrompt = `${systemDepthWorldBookContext ? `System Depth Rules (Highest Priority):\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `Before Role Rules:\n${beforeRoleWorldBookContext}\n\n` : ''}You are playing the role of ${friend.realName || friend.nickname}. 
 【核心设定/Core Persona】：${friend.persona || 'No specific persona'}。
-You are talking to ${userState.name}, whose persona is: ${effectiveUserPersona || 'A normal user'}。
+You are talking to ${currentUserState.name || 'User'}, whose persona is: ${effectiveUserPersona || 'A normal user'}。
 【强制要求】：你必须在接下来的每一句对话、动作和心声中，深刻且精准地体现出你自己的【核心设定】，同时充分关注并根据用户的设定做出互动，绝对不能偏离人设！
 当前系统时间是：${timeString}。请在对话和心声中自然地感知并体现出对当前时间（如早晚、日期）的认知。${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContext}` : ''}${sleepPrompt}
 Reply naturally as your character in a chat app.
@@ -488,7 +550,7 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
         const messages = [{ role: 'system', content: systemPrompt }];
         if (window.imApp.buildApiContextMessages) {
             const contextMessages = window.imApp.buildApiContextMessages(friend, {
-                userName: userState.name || 'User'
+                userName: currentUserState.name || 'User'
             });
 
             if (Array.isArray(contextMessages) && contextMessages.length > 0) {
@@ -526,28 +588,37 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
             return;
         }
 
-        try {
-            let endpoint = apiConfig.endpoint;
+            let endpoint = currentApiConfig.endpoint;
             if(endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
             if(!endpoint.endsWith('/chat/completions')) {
                 endpoint = endpoint.endsWith('/v1') ? endpoint + '/chat/completions' : endpoint + '/v1/chat/completions';
             }
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({
-                    model: apiConfig.model || '',
-                    messages: messages,
-                    temperature: parseFloat(apiConfig.temperature) || 0.7
-                })
+            const response = await fetchChatCompletionWithTimeout(endpoint, currentApiConfig, messages, 30000);
+
+            if (!response.ok) {
+                let errorMsg = 'API Error';
+                try {
+                    const errData = await response.json();
+                    errorMsg = JSON.stringify(errData);
+                } catch(e) {
+                    errorMsg = `${response.status} ${response.statusText}`;
+                }
+                throw new Error(`API Error: ${errorMsg}`);
+            }
+            const data = await response.json();
+            let fullReply = getAiResponseContent(data);
+
+            console.log('[iMessage API] response received', {
+                hasChoices: Array.isArray(data?.choices),
+                contentLength: typeof fullReply === 'string' ? fullReply.length : 0
             });
 
-            if (!response.ok) throw new Error('API Error');
-            const data = await response.json();
-            let fullReply = data.choices[0].message.content;
-
             if (typingRow) typingRow.remove();
+
+            if (!fullReply || typeof fullReply !== 'string') {
+                throw new Error(`API 返回内容为空或格式不兼容: ${JSON.stringify(data).slice(0, 500)}`);
+            }
 
             // 拦截并移除邀请标记，确保它不会进入后续的 JSON 解析
             let inviteAccepted = false;
@@ -1255,8 +1326,14 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
 
         } catch (error) {
             if (typingRow && typingRow.parentNode) typingRow.remove();
-            if (window.showToast) window.showToast('API 请求失败');
-            console.error(error);
+
+            const isTimeout = error && error.name === 'AbortError';
+            const message = isTimeout
+                ? 'API 请求超时，请检查接口地址/网络/模型'
+                : `API 请求失败${error && error.message ? `：${error.message}` : ''}`;
+
+            if (window.showToast) window.showToast(message);
+            console.error('[iMessage API] request failed', error);
             if (btnEl) btnEl.style.opacity = '1';
         }
     }

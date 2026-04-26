@@ -172,9 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Confirm Add Friend/NPC
     const confirmAddFriendBtn = document.getElementById('confirm-add-friend-btn');
     const confirmAddNpcBtn = document.getElementById('confirm-add-npc-btn');
+    let isAddingFriend = false;
+    let isAddingNpc = false;
+
+    function setAddButtonBusy(button, busy) {
+        if (!button) return;
+        button.style.pointerEvents = busy ? 'none' : '';
+        button.style.opacity = busy ? '0.65' : '';
+    }
 
     if(confirmAddFriendBtn) {
         confirmAddFriendBtn.addEventListener('click', async () => {
+            if (isAddingFriend) return;
+            isAddingFriend = true;
+            setAddButtonBusy(confirmAddFriendBtn, true);
+
             const friend = window.imApp.normalizeFriendData({
                 id: Date.now(),
                 type: 'char',
@@ -194,15 +206,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = window.imApp.commitFriendsChange
                 ? await window.imApp.commitFriendsChange(() => {
                     window.imData.friends.push(friend);
-                }, { silent: true })
+                }, { friendId: friend.id, silent: true })
                 : false;
 
             if (!saved) {
+                isAddingFriend = false;
+                setAddButtonBusy(confirmAddFriendBtn, false);
                 if(window.showToast) window.showToast('添加 Char 保存失败');
                 return;
             }
 
             renderFriendsList();
+            isAddingFriend = false;
+            setAddButtonBusy(confirmAddFriendBtn, false);
             closeView(document.getElementById('add-friend-sheet'));
             if(window.showToast) window.showToast(`已添加 Char: ${friend.nickname}`);
         });
@@ -210,6 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(confirmAddNpcBtn) {
         confirmAddNpcBtn.addEventListener('click', async () => {
+            if (isAddingNpc) return;
+            isAddingNpc = true;
+            setAddButtonBusy(confirmAddNpcBtn, true);
+
             const npc = window.imApp.normalizeFriendData({
                 id: Date.now(),
                 type: 'npc',
@@ -229,10 +249,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = window.imApp.commitFriendsChange
                 ? await window.imApp.commitFriendsChange(() => {
                     window.imData.friends.push(npc);
-                }, { silent: true })
+                }, { friendId: npc.id, silent: true })
                 : false;
 
             if (!saved) {
+                isAddingNpc = false;
+                setAddButtonBusy(confirmAddNpcBtn, false);
                 if(window.showToast) window.showToast('添加 NPC 保存失败');
                 return;
             }
@@ -241,6 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
             closeView(document.getElementById('add-friend-sheet'));
             if(window.showToast) window.showToast(`已添加 NPC: ${npc.nickname}`);
 
+            isAddingNpc = false;
+            setAddButtonBusy(confirmAddNpcBtn, false);
             const relationshipSheet = document.getElementById('relationship-sheet');
             if (window.imData.currentSettingsFriend && relationshipSheet && relationshipSheet.style.display !== 'none') {
                 window.imData.currentSettingsFriend.memory = window.imData.currentSettingsFriend.memory || window.imApp.createDefaultMemory();

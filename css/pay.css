@@ -94,7 +94,7 @@
     flex: 1;
     overflow-y: auto;
     position: relative;
-    padding-top: max(60px, calc(44px + env(safe-area-inset-top, 0px))); /* Make room for floating header */
+    padding-top: max(44px, calc(44px + env(safe-area-inset-top, 0px))); /* Make room for floating header */
 }
 
 .pay-tab {

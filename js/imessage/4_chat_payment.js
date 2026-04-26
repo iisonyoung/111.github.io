@@ -684,7 +684,7 @@ function ensureTransferDetailOverlayForExistingPage(page, friend) {
                             </div>
                             <div style="min-width:0;">
                                 <div class="pay-transfer-detail-name" style="font-size:17px; font-weight:700; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">付款人</div>
-                                <div style="font-size:12px; color:#8e8e93; margin-top:3px;">向你转账</div>
+                                <div class="pay-transfer-detail-action-text" style="font-size:12px; color:#8e8e93; margin-top:3px;">向你转账</div>
                             </div>
                         </div>
                         <div class="pay-transfer-detail-amount" style="font-size:34px; line-height:1.1; font-weight:800; color:#111; text-align:center; margin:8px 0 10px;">¥0.00</div>
@@ -721,21 +721,21 @@ function ensureTransferDetailOverlayForExistingPage(page, friend) {
             if (!transferDetailOverlay || !targetMsg) return;
 
             pendingTransferMsg = targetMsg;
-            // 只要是用户发出的（或者是由用户发出的待领取/被AI收下/被AI退回），发起人就是用户
-            const isUserSender = targetMsg.payKind === 'user_to_char' 
-                              || targetMsg.payKind === 'char_received' // AI收下用户的钱
-                              || targetMsg.payKind === 'user_rejected_from_char'; // AI退回用户的钱
 
-            // AI发出的（或者是AI发出的待领取/被用户收下/被用户退回），发起人就是AI
-            const isCharSender = targetMsg.payKind === 'char_to_user_pending' 
-                              || targetMsg.payKind === 'char_to_user_claimed' // 用户收下AI的钱
-                              || targetMsg.payKind === 'user_received_from_char' // 也是用户收下AI的记录之一（双向气泡可能有冗余payKind，统一视为AI发起）
-                              || targetMsg.payKind === 'char_to_user_rejected' // 用户退回AI的钱
-                              || targetMsg.payKind === 'user_to_char_rejected'; // 也是用户退回记录之一
+            // 判断发起转账的人是不是用户
+            // 如果是老版本没有 payKind 的数据，依赖 role
+            let isUserSender = false;
+            const userSenderKinds = ['user_to_char', 'char_received', 'user_to_char_rejected', 'char_to_user_rejected'];
+            if (targetMsg.payKind) {
+                isUserSender = userSenderKinds.includes(targetMsg.payKind);
+            } else {
+                isUserSender = targetMsg.role === 'user';
+            }
 
             // 确定发送者和接收者名称
-            const senderName = isUserSender ? (userState.name || '你') : (friend.nickname || friend.realName || '对方');
-            const receiverName = isUserSender ? (friend.nickname || friend.realName || '对方') : (userState.name || '你');
+            const currentUserState = window.userState || {};
+            const senderName = isUserSender ? (currentUserState.name || '你') : (friend.nickname || friend.realName || '对方');
+            const receiverName = isUserSender ? (friend.nickname || friend.realName || '对方') : (currentUserState.name || '你');
             
             const amount = Number(targetMsg.amount) || 0;
             const description = targetMsg.description || '转账';
@@ -745,9 +745,14 @@ function ensureTransferDetailOverlayForExistingPage(page, friend) {
             if (transferDetailDesc) transferDetailDesc.textContent = description;
             if (transferDetailSummary) transferDetailSummary.textContent = `${senderName} 向 ${receiverName} 转账，备注：${description}`;
 
+            const transferDetailActionText = page.querySelector('.pay-transfer-detail-action-text');
+            if (transferDetailActionText) {
+                transferDetailActionText.textContent = isUserSender ? '转账给 ' + receiverName : '向你转账';
+            }
+
             if (transferDetailAvatar) {
                 const avatarSrc = isUserSender 
-                    ? (userState.avatarUrl || userState.avatar)
+                    ? (currentUserState.avatarUrl || currentUserState.avatar)
                     : friend.avatarUrl;
 
                 if (avatarSrc) {
@@ -757,8 +762,11 @@ function ensureTransferDetailOverlayForExistingPage(page, friend) {
                 }
             }
 
+            // 按钮容器
+            const actionsContainer = transferDetailRejectBtn ? transferDetailRejectBtn.parentElement : null;
+
             // 根据状态控制按钮显示
-            // 如果是已经被处理过的记录（任何已收下或退回的状态），隐藏所有按钮
+            // 如果是已经被处理过的记录（任何已收下或退回的状态），隐藏所有按钮及其容器
             if (targetMsg.claimed || 
                 targetMsg.payKind === 'char_to_user_claimed' || 
                 targetMsg.payKind === 'char_received' ||
@@ -766,14 +774,13 @@ function ensureTransferDetailOverlayForExistingPage(page, friend) {
                 targetMsg.payKind === 'char_to_user_rejected' || 
                 targetMsg.payKind === 'user_to_char_rejected' || 
                 targetMsg.payKind === 'user_rejected_from_char') {
-                if (transferDetailRejectBtn) transferDetailRejectBtn.style.display = 'none';
-                if (transferDetailClaimBtn) transferDetailClaimBtn.style.display = 'none';
+                if (actionsContainer) actionsContainer.style.display = 'none';
             } else if (isUserSender) {
                 // 如果是用户刚发出的待处理转账（user_to_char），详情里不显示按钮，只能等待AI通过API自动回复（处理收下/退回）
-                if (transferDetailRejectBtn) transferDetailRejectBtn.style.display = 'none';
-                if (transferDetailClaimBtn) transferDetailClaimBtn.style.display = 'none';
+                if (actionsContainer) actionsContainer.style.display = 'none';
             } else {
                 // 如果是AI发出的待领取，正常显示
+                if (actionsContainer) actionsContainer.style.display = 'flex';
                 if (transferDetailRejectBtn) {
                     transferDetailRejectBtn.style.display = 'block';
                     transferDetailRejectBtn.textContent = '退回';

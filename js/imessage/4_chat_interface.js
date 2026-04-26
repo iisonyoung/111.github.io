@@ -767,28 +767,46 @@ async function openChatTab(friend) {
 
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    window.imChat.handleSend(friend, input, msgContainer);
+                    const currentFriend = window.imData.currentActiveFriend || friend;
+                    window.imChat.handleSend(currentFriend, input, msgContainer);
                     const listContainer = page.querySelector('.at-mention-list');
                     if (listContainer) listContainer.style.display = 'none';
                 }
             });
 
             sendBtn.addEventListener('click', () => {
-                window.imChat.handleSend(friend, input, msgContainer);
+                const currentFriend = window.imData.currentActiveFriend || friend;
+                window.imChat.handleSend(currentFriend, input, msgContainer);
                 const listContainer = page.querySelector('.at-mention-list');
                 if (listContainer) listContainer.style.display = 'none';
             });
 
             micBtn.addEventListener('click', () => {
-                window.imChat.handleAiReply(friend, msgContainer, micBtn);
+                console.log('Mic button clicked!');
+                const currentFriend = window.imData.currentActiveFriend || friend;
+                if (window.imChat && window.imChat.handleAiReply) {
+                    window.imChat.handleAiReply(currentFriend, msgContainer, micBtn);
+                } else {
+                    console.error('window.imChat.handleAiReply is not defined');
+                    if (window.showToast) window.showToast('无法调用 AI 接口');
+                }
             });
 
             window.imChat.renderChatHistory(friend, msgContainer);
         } else {
+             // 如果页面已存在，我们需要确保已有页面的麦克风按钮能够正常触发，
+             // 但原逻辑只有在 !page 也就是创建页面时绑定了 click，
+             // 所以如果是复用的页面，原先的闭包引用的 friend 可能旧了，或者节点变了。
+             // 不过通常这种 SPA 是在元素上保留原本监听器的，所以先看看原先的逻辑。
              window.imChat.ensureTransferDetailOverlayForExistingPage(page, friend);
              window.imChat.ensureRedPacketDetailOverlayForExistingPage(page, friend);
              const msgContainer = page.querySelector('.ins-chat-messages');
              window.imChat.renderChatHistory(friend, msgContainer);
+
+             // 确保在已存在页面下，麦克风按钮也能绑定点击事件，或者原先的事件中的闭包上下文能够更新
+             // 更好的做法是将最新 friend 更新给全局上下文。上面已经做了:
+             // window.imData.currentActiveFriend = activeFriend;
+             // 所以原绑定的闭包会读到最新的 window.imData.currentActiveFriend，这是有效的。
         }
 
         if(window.imApp.applyFriendBg) window.imApp.applyFriendBg(friend);

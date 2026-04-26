@@ -118,6 +118,7 @@
         
         // Expose globally for other modules if needed
         window.apiConfig = apiConfig;
+        window.userState = userState;
 
         // ==========================================
         // UI DOM Elements Mapping

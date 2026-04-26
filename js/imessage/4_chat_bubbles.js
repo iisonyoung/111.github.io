@@ -85,8 +85,10 @@ function renderGroupRedPacketBubble(msg, friend, container, timestamp = Date.now
             </div>
         `;
 
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
 
         if (isUser) {
             const metaHtml = `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`;
@@ -371,8 +373,10 @@ function renderUserBubble(text, container, timestamp = Date.now(), replyTo = nul
             contentHtml += `<div class="msg-translation" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.4; word-wrap: break-word; white-space: normal;">${translation}</div>`;
         }
 
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
         contentHtml += `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`;
 
         row.innerHTML = `
@@ -429,8 +433,10 @@ function renderAiBubble(text, friend, container, timestamp = Date.now(), transla
             contentHtml += `<div class="msg-translation" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.1); font-size: 13px; color: #8e8e93; line-height: 1.4; word-wrap: break-word; white-space: normal;">${translation}</div>`;
         }
         
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
         contentHtml += `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span></span>`;
 
         let bubbleWrapperHtml = '';
@@ -490,8 +496,10 @@ function renderImageBubble(msg, friend, container, timestamp = Date.now()) {
             <img src="${msg.content}" style="max-width: 200px; max-height: 300px; border-radius: 12px; object-fit: cover; display: block; background: #e5e5ea;">
         `;
 
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
         
         if (isUser) {
             let metaHtml = `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`;
@@ -581,7 +589,7 @@ function renderPayTransferBubble(msg, friend, container, timestamp = Date.now())
         }
 
         const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 
         if (isOfficialReceipt) {
             // 微信支付样式居中大卡片
@@ -713,8 +721,10 @@ function renderMomentForwardBubble(msg, friend, container, timestamp = Date.now(
             </div>
         `;
 
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
         
         if (isUser) {
             let metaHtml = `<span class="bubble-meta" style="margin-left: 4px;"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`;
@@ -833,8 +843,10 @@ function renderMomentForwardBubble(msg, friend, container, timestamp = Date.now(
             </div>
         `;
 
-        const date = new Date(timestamp);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
 
         if (isUser) {
             const metaHtml = `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`;

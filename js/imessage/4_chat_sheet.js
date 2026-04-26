@@ -227,7 +227,7 @@ function createAttachmentSheet(page) {
                         </div>
                     </div>
 
-                    <div class="pay-transfer-form-actions" style="display: flex; gap: 10px; margin-top: 16px;">
+                    <div class="pay-transfer-form-actions" style="display: flex; gap: 4px; margin-top: 16px;">
                         <div class="pay-transfer-cancel-btn" style="flex: 1; height: 44px; border-radius: 16px; background: #f2f2f7; color: #666; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; cursor: pointer;">取消</div>
                         <div class="pay-transfer-submit-btn" style="flex: 1; height: 44px; border-radius: 16px; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; cursor: pointer;">发送</div>
                     </div>
@@ -444,7 +444,7 @@ function createAttachmentSheet(page) {
                 // Always white card for simplicity in picker
                 el.style.background = '#ffffff';
                 el.style.color = '#000000';
-                el.style.marginBottom = '10px';
+                el.style.borderRadius = '16px';
                 el.style.cursor = 'pointer';
                 el.style.border = '1px solid #e5e5ea';
                 el.style.boxShadow = 'none';
@@ -494,6 +494,10 @@ function createAttachmentSheet(page) {
             if (!payFormOverlay) return;
             const activeFriend = window.imData.currentActiveFriend;
             const isGroupChat = activeFriend && activeFriend.type === 'group';
+
+            // Close attachment menu overlay & content
+            if (content) content.style.transform = 'translateY(100%)';
+            if (overlay) overlay.style.opacity = '0';
 
             payFormOverlay.style.display = 'flex';
             if (payAmountInput) payAmountInput.value = '';
@@ -918,8 +922,8 @@ function openAttachmentSheet() {
             notificationBanner.style.position = 'absolute';
             notificationBanner.style.top = '10px'; // Starts slightly below top
             notificationBanner.style.left = '50%';
-            notificationBanner.style.transform = 'translate(-50%, -150%)'; // Hidden initially
-            notificationBanner.style.width = 'calc(100% - 32px)';
+              notificationBanner.style.transform = 'translate(-50%, -150%)'; // Hidden initially
+              notificationBanner.style.width = 'calc(100% - 32px)';
             notificationBanner.style.maxWidth = '360px'; // Keep it tight like a mobile banner
             notificationBanner.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
             notificationBanner.style.backdropFilter = 'blur(20px)';
@@ -970,10 +974,10 @@ function openAttachmentSheet() {
 
         if (bannerTimeout) clearTimeout(bannerTimeout);
 
-        // Slide down
-        requestAnimationFrame(() => {
-            notificationBanner.style.transform = 'translate(-50%, max(env(safe-area-inset-top), 10px))';
-        });
+          // Slide down
+          requestAnimationFrame(() => {
+              notificationBanner.style.transform = 'translate(-50%, max(env(safe-area-inset-top, 0px), 10px))';
+          });
 
         // Slide up after 4 seconds
         bannerTimeout = setTimeout(() => {
