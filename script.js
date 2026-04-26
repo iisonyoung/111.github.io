@@ -21,21 +21,7 @@
         lastTap = now;
     }, { passive: false });
 
-    /* iOS 15+ 地址栏高度补偿 */
-    function setRealVh() {
-        // visualViewport 提供更精确的视口尺寸
-        const vh = (window.visualViewport?.height ?? window.innerHeight) * 0.01;
-        document.documentElement.style.setProperty('--real-vh', `${vh}px`);
-    }
-
-    // 初始化和监听窗口大小变化
-    setRealVh();
-    window.visualViewport?.addEventListener('resize', setRealVh);
-    window.visualViewport?.addEventListener('scroll', setRealVh);
-    window.addEventListener('resize', setRealVh);
-
-    /* 键盘收起时强制页面滚动回顶部的修复 */
-    /* 判断当前是否已经在全屏模式运行（用户已添加到主屏幕并从中打开）*/
+    /* Standalone detection for PWA/fullscreen mode. */
     function isStandalone() {
         return ('standalone' in window.navigator && window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
     }

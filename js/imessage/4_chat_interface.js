@@ -40,7 +40,6 @@ async function openChatTab(friend) {
             page.id = pageId;
             page.className = 'active-chat-interface';
             page.style.display = 'none';
-            page.style.position = 'relative';
             
             let avatarHtml;
             if (friend.type === 'group') {
@@ -661,7 +660,13 @@ async function openChatTab(friend) {
                     const inputContainer = page.querySelector('.ins-chat-input-container');
                     const attachmentSheet = document.getElementById('chat-attachment-sheet');
                     if (inputContainer) inputContainer.classList.remove('push-up', 'push-up-more');
-                    if (attachmentSheet) attachmentSheet.style.display = 'none';
+                    if (attachmentSheet) {
+                        const overlay = attachmentSheet.querySelector('.sheet-overlay');
+                        const content = attachmentSheet.querySelector('.sheet-content');
+                        if (overlay) overlay.style.opacity = '0';
+                        if (content) content.style.transform = 'translateY(100%)';
+                        attachmentSheet.style.display = 'none';
+                    }
                 });
             }
 
