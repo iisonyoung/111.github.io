@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const signature = friend.signature || '这个人很懒，什么都没写';
         const onlineLabel = isSleeping ? 'offline' : ((panel.status || friend.status || 'online').toString().trim() || 'online');
         
-        const affection = typeof friend.profilePanel?.affection === 'number' ? friend.profilePanel.affection : (typeof panel.affection === 'number' ? panel.affection : 50);
+        const affection = typeof friend.profilePanel?.affection === 'number' ? friend.profilePanel.affection : (typeof panel.affection === 'number' ? panel.affection : 0);
         const affectionChange = typeof friend.profilePanel?.affectionChange === 'number' ? friend.profilePanel.affectionChange : (typeof panel.affectionChange === 'number' ? panel.affectionChange : 0);
         const affectionChangeStr = affectionChange >= 0 ? `+${affectionChange}` : `${affectionChange}`;
 

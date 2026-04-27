@@ -331,47 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             friend.memory = window.imApp.normalizeFriendData(friend).memory;
 
-        let shouldSummarizeThisTurn = false;
-        const summaryLimit = parseInt(friend.memory.summary?.limit, 10) || 80;
-        const lastCount = friend.memory.lastSummaryMessageCount || 0;
-        const messagesSinceSummary = (friend.messages || []).length - lastCount;
-
-        if (summaryLimit > 0 && messagesSinceSummary >= summaryLimit) {
-            if (friend.memory.summary?.enabled) {
-                shouldSummarizeThisTurn = true;
-            } else if (messagesSinceSummary === summaryLimit && !friend.memory.summary?.enabled) {
-                const userAgreed = await new Promise(resolve => {
-                    if (window.showCustomModal) {
-                        window.showCustomModal({
-                            title: '是否生成记忆总结？',
-                            message: '当前对话条数已达到设定的阈值，是否让 AI 生成一段总结并存入长期记忆？',
-                            confirmText: '生成总结',
-                            cancelText: '暂不生成',
-                            onConfirm: () => resolve(true),
-                            onCancel: () => resolve(false)
-                        });
-                    } else if (confirm('当前对话条数已达到设定的阈值，是否让 AI 生成一段总结并存入长期记忆？')) {
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                });
-
-                if (userAgreed) {
-                    shouldSummarizeThisTurn = true;
-                } else {
-                    if (window.imApp.commitScopedFriendChange) {
-                        await window.imApp.commitScopedFriendChange(friend.id, (targetFriend) => {
-                            if (!targetFriend) return;
-                            if (!targetFriend.memory) targetFriend.memory = {};
-                            targetFriend.memory.lastSummaryMessageCount = (targetFriend.messages || []).length;
-                        }, { silent: true, metaOnly: true });
-                        friend.memory.lastSummaryMessageCount = (friend.messages || []).length;
-                    }
-                }
-            }
-        }
-
         const isSleeping = window.imApp.isCharacterSleeping(friend);
 
         const relationshipText = friend.memory.relationships && friend.memory.relationships.length > 0
@@ -381,11 +340,87 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('\n')
             : 'None';
 
+        function parseShortTermMemoryDate(value) {
+            if (!value) return 0;
+            if (typeof value === 'number') return value;
+            const normalized = String(value)
+                .replace(/年/g, '-')
+                .replace(/月/g, '-')
+                .replace(/日/g, ' ')
+                .replace(/\./g, '-')
+                .replace(/\//g, '-');
+            const parsed = new Date(normalized);
+            return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+        }
+
+        function normalizeShortTermMemoryDegree(value) {
+            const text = String(value || '高').trim();
+            if (text === '中' || text === '低' || text === '遗忘') return text;
+            return '高';
+        }
+
+        function formatShortTermMemoryEntry(entry) {
+            return [
+                `- ID: ${entry.id || ''}`,
+                `  标题: ${entry.title || '对话总结'}`,
+                `  时间: ${entry.time || ''}`,
+                `  事件: ${entry.event || ''}`,
+                `  记忆点: ${entry.memoryPoints || ''}`,
+                `  记忆程度: ${normalizeShortTermMemoryDegree(entry.degree)}`
+            ].join('\n');
+        }
+
+        function buildShortTermMemoryContext(friend) {
+            if (friend.type === 'group') return '';
+            const entries = Array.isArray(friend.memory?.shortTermEntries)
+                ? friend.memory.shortTermEntries.filter(entry => entry && (entry.event || entry.memoryPoints || entry.title))
+                : [];
+            if (entries.length === 0) return '';
+
+            const buckets = {
+                高: [],
+                中: [],
+                低: [],
+                遗忘: []
+            };
+
+            entries.forEach(entry => {
+                const degree = normalizeShortTermMemoryDegree(entry.degree);
+                buckets[degree].push(entry);
+            });
+
+            Object.keys(buckets).forEach(degree => {
+                buckets[degree].sort((a, b) => {
+                    const bTime = parseShortTermMemoryDate(b.lastActivatedAt || b.time || b.createdAt);
+                    const aTime = parseShortTermMemoryDate(a.lastActivatedAt || a.time || a.createdAt);
+                    return bTime - aTime;
+                });
+            });
+
+            const sections = [
+                ['高权重记忆 | 参考强度 70%', buckets.高],
+                ['中权重记忆 | 参考强度 25%', buckets.中],
+                ['低权重记忆 | 参考强度 5%', buckets.低],
+                ['遗忘记忆 | 仅作为模糊残影', buckets.遗忘]
+            ]
+                .filter(([, items]) => items.length > 0)
+                .map(([title, items]) => `${title}\n${items.map(formatShortTermMemoryEntry).join('\n')}`)
+                .join('\n\n');
+
+            return `Short-term Memory Library（全部可读取，必须按权重使用）:
+- 高：强参考，优先影响情绪、态度、称呼和细节联想，占记忆影响约70%。
+- 中：辅助参考，只在话题相关时使用，占约25%。
+- 低：弱参考，只在用户明确触发时轻微使用，占约5%。
+- 遗忘：仅作为模糊残影，不主动提起，除非用户强烈触发。
+
+${sections}`;
+        }
+
         const commonMemorySections = [
             friend.memory.overview ? `Overview:\n${friend.memory.overview}` : '',
             friend.memory.longTerm ? `Long-term Memory:\n${friend.memory.longTerm}` : '',
             friend.memory.context?.notes ? `Extra Context Notes:\n${friend.memory.context.notes}` : '',
-            friend.memory.summary?.enabled && friend.memory.summary?.prompt ? `Auto Summary Prompt:\n${friend.memory.summary.prompt}` : '',
+            buildShortTermMemoryContext(friend),
             `Relationship Network:\n${relationshipText}`,
             (() => {
                 const mounted = friend.mountedStickers || [];
@@ -417,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }).join('\n')
                     : 'None';
 
-                const affection = typeof panel.affection === 'number' ? panel.affection : 50;
+                const affection = typeof panel.affection === 'number' ? panel.affection : 0;
 
                 const historySummary = Array.isArray(panel.thoughtHistory) && panel.thoughtHistory.length > 0
                     ? panel.thoughtHistory.slice(0, 3).map(t => `- ${t.content}`).join('\n')
@@ -560,9 +595,6 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
         if (messages.length === 1) messages.push({ role: 'user', content: 'Hello' });
 
         const trailingContexts = [];
-        if (friend.memory && friend.memory.anniversaries && String(friend.memory.anniversaries).trim()) {
-            trailingContexts.push(`[Anniversaries / 纪念日 - 请关注以下纪念日信息：]\n${friend.memory.anniversaries}`);
-        }
         if (friend.memory && friend.memory.cherished && String(friend.memory.cherished).trim()) {
             trailingContexts.push(`[Important Cherished Memories / 珍视回忆 - 请深刻记住并参考这些回忆：]\n${friend.memory.cherished}`);
         }
@@ -570,14 +602,6 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
             messages.push({
                 role: 'system',
                 content: trailingContexts.join('\n\n')
-            });
-        }
-
-        if (shouldSummarizeThisTurn) {
-            const summaryPrompt = friend.memory.summary?.prompt || window.imApp.createDefaultMemory().summary.prompt;
-            messages.push({
-                role: 'system',
-                content: `【系统指令】：本次回复除了正常的聊天内容外，你必须额外输出一个 <summary_block>...</summary_block>。\n在标签内，请根据以下提示词对最近的对话进行总结：\n${summaryPrompt}\n总结必须尽量简明扼要，且包含具体的关键信息。`
             });
         }
 
@@ -725,53 +749,6 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                 }
             }
 
-            const summaryBlock = window.imChat.extractTaggedBlock(fullReply, 'summary_block');
-            if (summaryBlock) {
-                fullReply = window.imChat.removeTaggedBlock(fullReply, 'summary_block');
-                
-                if (window.imApp.commitScopedFriendChange) {
-                    await window.imApp.commitScopedFriendChange(friend.id, (targetFriend) => {
-                        if (!targetFriend) return;
-                        if (!targetFriend.memory) targetFriend.memory = {};
-                        if (targetFriend.type === 'group') {
-                            // 群聊存入 overview 或长期记忆中，此处选 overview 累加
-                            targetFriend.memory.overview = (targetFriend.memory.overview || '') + '\n' + summaryBlock;
-                        } else {
-                            if (!Array.isArray(targetFriend.memory.longTermEntries)) {
-                                targetFriend.memory.longTermEntries = [];
-                                if (targetFriend.memory.longTerm) {
-                                    targetFriend.memory.longTermEntries.push({
-                                        id: `ltm-${Date.now()}-0`,
-                                        title: '原有长期记忆',
-                                        content: targetFriend.memory.longTerm,
-                                        time: ''
-                                    });
-                                }
-                            }
-                            
-                            const currentTime = new Date();
-                            const timeString = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')} ${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
-                            
-                            targetFriend.memory.longTermEntries.push({
-                                id: `ltm-${Date.now()}-1`,
-                                title: '对话总结',
-                                content: summaryBlock,
-                                time: timeString
-                            });
-                        }
-                        targetFriend.memory.lastSummaryMessageCount = (targetFriend.messages || []).length + 1;
-                    }, { silent: true, metaOnly: true });
-                }
-            } else if (shouldSummarizeThisTurn) {
-                if (window.imApp.commitScopedFriendChange) {
-                    await window.imApp.commitScopedFriendChange(friend.id, (targetFriend) => {
-                        if (!targetFriend) return;
-                        if (!targetFriend.memory) targetFriend.memory = {};
-                        targetFriend.memory.lastSummaryMessageCount = (targetFriend.messages || []).length + 1;
-                    }, { silent: true, metaOnly: true });
-                }
-            }
-
             if (nextProfilePanel && friend.type !== 'group') {
                 const profileFriend = getLiveFriendById(friend.id) || friend;
 
@@ -783,7 +760,7 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                             ? window.imApp.createDefaultProfilePanel(targetFriend)
                             : (targetFriend.profilePanel || { activeTab: 'thought', thought: '', status: 'online', events: [] });
 
-                        const oldAffection = typeof basePanel.affection === 'number' ? basePanel.affection : 50;
+                        const oldAffection = typeof basePanel.affection === 'number' ? basePanel.affection : 0;
                         const affectionChange = typeof nextProfilePanel.affectionChange === 'number' ? nextProfilePanel.affectionChange : 0;
                         const newAffection = Math.max(0, Math.min(100, oldAffection + affectionChange));
 

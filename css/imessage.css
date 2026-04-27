@@ -309,7 +309,7 @@
     border-radius: 40px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     width: auto;
-    min-width: 240px; /* Same as YouTube */
+    min-width: min(340px, calc(100vw - 28px));
     justify-content: space-between;
     align-items: stretch;
     height: 52px;
@@ -340,7 +340,8 @@
     font-weight: 500;
     cursor: pointer;
     z-index: 1;
-    padding: 0 20px;
+    padding: 0 15px;
+    min-width: 72px;
     height: 100%;
     transition: color 0.3s;
 }
@@ -367,6 +368,360 @@
 
 .line-content, .chats-content, .calls-content {
     animation: imFadeIn 0.3s ease;
+}
+
+.memory-content {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    background: #f2f2f7;
+    animation: imFadeIn 0.3s ease;
+}
+
+.memory-top-friends-scroll {
+    display: flex;
+    overflow-x: auto;
+    padding: calc(62px + env(safe-area-inset-top, 0px)) calc(50vw - 36px) 18px;
+    gap: 14px;
+    scrollbar-width: none;
+    background: #f2f2f7;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    align-items: flex-start;
+    flex-shrink: 0;
+}
+
+.memory-top-friends-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.memory-friend-story-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    width: 72px;
+    scroll-snap-align: center;
+    opacity: 0.4;
+    transform: scale(0.8);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
+}
+
+.memory-friend-story-item.active {
+    opacity: 1;
+    transform: scale(1.3);
+}
+
+.memory-friend-story-avatar-wrapper {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    padding: 4px;
+    background: #007aff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.memory-friend-story-avatar-img,
+.memory-friend-story-avatar-icon {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #ffffff;
+    border: 2px solid #ffffff;
+}
+
+.memory-friend-story-avatar-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 24px;
+}
+
+.memory-friend-story-name {
+    width: 100%;
+    color: #333333;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memory-library-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 18px var(--im-bottom-nav-space);
+    background: #f2f2f7;
+}
+
+.memory-selected-name {
+    display: none;
+}
+
+.memory-files-title {
+    display: none;
+}
+
+.memory-search-bar {
+    width: 100%;
+    height: 36px;
+    margin-bottom: 18px;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: #e5e5ea;
+    color: #8e8e93;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.memory-search-bar i {
+    margin-right: 8px;
+}
+
+.memory-section-title {
+    margin: 0 0 10px;
+    color: #111111;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.memory-files-group {
+    margin-bottom: 20px;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.memory-file-row {
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+    padding: 0 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.memory-file-row:last-child {
+    border-bottom: none;
+}
+
+.memory-file-row span {
+    flex: 1;
+    color: #111111;
+    font-size: 17px;
+    font-weight: 500;
+}
+
+.memory-file-icon {
+    width: 26px;
+    margin-right: 15px;
+    color: #007aff;
+    font-size: 22px;
+    text-align: center;
+}
+
+.memory-download-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #e5e5ea;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.memory-file-chevron {
+    color: #c7c7cc;
+    font-size: 14px;
+}
+
+.memory-empty-state {
+    width: 100%;
+    padding: 24px 20px;
+    color: #8e8e93;
+    font-size: 14px;
+    text-align: center;
+}
+
+.memory-location-bottom-sheet {
+    height: auto;
+    min-height: 220px;
+    max-height: 70%;
+    background: #f2f2f7;
+    display: flex;
+    flex-direction: column;
+}
+
+.memory-location-sheet-empty {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 24px;
+}
+
+.memory-sheet-title {
+    padding: 0 16px 12px;
+    color: #111111;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.memory-short-list {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.memory-short-item {
+    min-height: 50px;
+    padding: 0 14px;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    background: #ffffff;
+    color: #111111;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.memory-short-item:last-child {
+    border-bottom: none;
+}
+
+.memory-short-item i {
+    color: #c7c7cc;
+    font-size: 13px;
+}
+
+.memory-short-empty {
+    padding: 34px 12px;
+    color: #8e8e93;
+    font-size: 14px;
+    text-align: center;
+}
+
+.memory-entry-detail-card,
+.memory-summary-card {
+    width: min(340px, calc(100vw - 36px));
+    max-height: 78%;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+}
+
+.memory-entry-detail-body,
+.memory-summary-body {
+    overflow-y: auto;
+    padding: 0 16px 18px;
+}
+
+.memory-entry-field {
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f2f2f7;
+}
+
+.memory-entry-field-label,
+.memory-summary-label {
+    margin-bottom: 6px;
+    color: #8e8e93;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.memory-entry-field-value {
+    color: #111111;
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.memory-summary-count-card {
+    padding: 14px;
+    border-radius: 14px;
+    background: #f2f2f7;
+    text-align: center;
+}
+
+.memory-summary-count {
+    color: #111111;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.memory-summary-form-row {
+    min-height: 48px;
+    margin-top: 14px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: #f2f2f7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #111111;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.memory-summary-form-row input {
+    width: 74px;
+    border: 1px solid #d1d1d6;
+    border-radius: 10px;
+    padding: 6px 8px;
+    background: #ffffff;
+    color: #111111;
+    font-size: 16px;
+    text-align: center;
+    outline: none;
+}
+
+.memory-summary-confirm-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 13px 0;
+    border: none;
+    border-radius: 14px;
+    background: #007aff;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+@media (max-width: 390px) {
+    .line-nav-item {
+        min-width: 64px;
+        padding: 0 10px;
+    }
+
+    .line-nav-item i {
+        font-size: 18px;
+    }
+
+    .line-nav-item span {
+        font-size: 9px;
+    }
 }
 
 /* Chats List View */

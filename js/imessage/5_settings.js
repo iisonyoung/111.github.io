@@ -693,11 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <textarea id="chat-memory-overview-input" class="global-textarea" placeholder="记录这个人的整体印象、关系概括、近期变化..."></textarea>
                 </div>
 
-                <div class="char-memory-section" id="chat-memory-anniversaries-panel" data-memory-panel="anniversaries">
-                    <div class="chat-memory-section-header" style="margin-bottom: 12px;">纪念日</div>
-                    <textarea id="chat-memory-anniversaries-input" class="global-textarea" placeholder="记录生日、纪念日、重要日期与提醒..."></textarea>
-                </div>
-
                 <div class="char-memory-section" id="chat-memory-longterm-panel" data-memory-panel="longterm">
                     <div class="chat-memory-section-header" style="margin-bottom: 12px;">长期记忆</div>
                     <textarea id="chat-memory-longterm-input" class="global-textarea" placeholder="记录长期稳定的重要设定、偏好、关系事实..."></textarea>
@@ -818,12 +813,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 subtitle: '记录整体印象、关系概括与近期变化',
                 emptyText: '这里还没有记录总览内容。'
             },
-            anniversaries: {
-                label: '角色记忆',
-                title: '纪念日',
-                subtitle: '记录生日、纪念日、重要日期与提醒',
-                emptyText: '这里还没有记录纪念日内容。'
-            },
             longterm: {
                 label: '角色记忆',
                 title: '长期记忆',
@@ -903,7 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
             systemContextLen += (memory.overview || '').length;
             systemContextLen += (memory.longTerm || '').length;
             systemContextLen += (memory.cherished || '').length;
-            systemContextLen += (memory.anniversaries || '').length;
             systemContextLen += (memory.context?.notes || '').length;
             
             // 4. Relationships
@@ -956,90 +944,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             ui.contentEl.innerHTML = statsHtml + buildTextMemoryModalHtml('总览', memory.overview, currentConfig.emptyText);
-        } else if (type === 'anniversaries') {
-            const addBtnHtml = `
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-                    <button type="button" id="add-birthday-btn" style="border: none; background: #111; color: #fff; border-radius: 12px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                        <i class="fas fa-plus"></i> 添加纪念日
-                    </button>
-                </div>
-            `;
-            ui.contentEl.innerHTML = addBtnHtml + buildTextMemoryModalHtml('纪念日', memory.anniversaries, currentConfig.emptyText);
-
-            setTimeout(() => {
-                const addBtn = document.getElementById('add-birthday-btn');
-                if (addBtn) {
-                    addBtn.addEventListener('click', () => {
-                        const modalHtml = `
-                            <div id="add-anniversary-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:9999; display:flex; justify-content:center; align-items:center;">
-                                <div style="background:#fff; width:300px; border-radius:20px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.2); animation: popIn 0.2s ease-out;">
-                                    <div style="font-size:18px; font-weight:700; text-align:center; margin-bottom:16px;">添加纪念日</div>
-                                    <div style="margin-bottom:12px;">
-                                        <div style="font-size:13px; color:#8e8e93; margin-bottom:4px; font-weight:600;">纪念日名称</div>
-                                        <input type="text" id="anniversary-name" placeholder="例如：认识100天" style="width:100%; padding:12px; border-radius:12px; border:1px solid #e5e5ea; outline:none; font-size:15px; background:#f8f8fb;"/>
-                                    </div>
-                                    <div style="margin-bottom:20px;">
-                                        <div style="font-size:13px; color:#8e8e93; margin-bottom:4px; font-weight:600;">日期 (年月日)</div>
-                                        <input type="date" id="anniversary-date" style="width:100%; padding:12px; border-radius:12px; border:1px solid #e5e5ea; outline:none; font-size:15px; background:#f8f8fb;"/>
-                                    </div>
-                                    <div style="display:flex; gap:10px;">
-                                        <button id="anniversary-cancel" style="flex:1; padding:12px; border:none; background:#f2f2f7; color:#111; border-radius:12px; font-weight:600; font-size:15px; cursor:pointer;">取消</button>
-                                        <button id="anniversary-confirm" style="flex:1; padding:12px; border:none; background:#111; color:#fff; border-radius:12px; font-weight:600; font-size:15px; cursor:pointer;">添加</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        const modalWrapper = document.createElement('div');
-                        modalWrapper.innerHTML = modalHtml;
-                        document.body.appendChild(modalWrapper);
-                        
-                        const modalOverlay = document.getElementById('add-anniversary-modal');
-                        const nameInput = document.getElementById('anniversary-name');
-                        const dateInput = document.getElementById('anniversary-date');
-                        const cancelBtn = document.getElementById('anniversary-cancel');
-                        const confirmBtn = document.getElementById('anniversary-confirm');
-
-                        const closeModal = () => {
-                            if (modalOverlay && modalOverlay.parentNode) {
-                                modalOverlay.parentNode.removeChild(modalOverlay);
-                            }
-                        };
-
-                        cancelBtn.addEventListener('click', closeModal);
-                        modalOverlay.addEventListener('click', (e) => {
-                            if(e.target === modalOverlay) closeModal();
-                        });
-
-                        confirmBtn.addEventListener('click', async () => {
-                            const nameVal = nameInput.value.trim();
-                            const dateVal = dateInput.value.trim();
-                            if (!nameVal || !dateVal) {
-                                if (window.showToast) window.showToast('请填写完整名称和日期');
-                                return;
-                            }
-                            
-                            const val = `${nameVal}：${dateVal}`;
-                            const currentText = normalizedFriend.memory.anniversaries || '';
-                            const newText = currentText ? currentText + '\n' + val : val;
-                            
-                            const saved = await window.imApp.commitScopedFriendChange(normalizedFriend, (targetFriend) => {
-                                if (!targetFriend.memory) targetFriend.memory = window.imApp.createDefaultMemory();
-                                targetFriend.memory.anniversaries = newText;
-                            }, { silent: true });
-                            
-                            if (saved) {
-                                if (window.showToast) window.showToast('已添加');
-                                const latestFriend = window.imData.friends.find(f => String(f.id) === String(normalizedFriend.id)) || normalizedFriend;
-                                window.imApp.showChatMemoryModal('anniversaries', latestFriend);
-                                
-                                const input = document.getElementById('chat-memory-anniversaries-input');
-                                if (input) input.value = newText;
-                            }
-                            closeModal();
-                        });
-                    });
-                }
-            }, 50);
         } else {
             const entries = Array.isArray(memory.longTermEntries) ? memory.longTermEntries : [];
             if (entries.length > 0) {
@@ -1087,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function bindChatMemoryPanelButtons() {
-        const panelNames = ['overview', 'anniversaries', 'longterm', 'cherished'];
+        const panelNames = ['overview', 'longterm', 'cherished'];
 
         panelNames.forEach((panelName) => {
             const btn = document.getElementById(`chat-memory-${panelName}-btn`);
@@ -2018,13 +1922,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const shouldToast = !!options.showToast;
 
         const chatMemoryOverviewInput = document.getElementById('chat-memory-overview-input');
-        const chatMemoryAnniversariesInput = document.getElementById('chat-memory-anniversaries-input');
         const chatMemoryContextEnabled = document.getElementById('chat-memory-context-enabled-toggle');
         const chatMemoryContextLimit = document.getElementById('chat-memory-context-limit-input');
-        const chatMemorySummaryEnabled = document.getElementById('chat-memory-summary-enabled-toggle');
-        const chatMemorySummaryLimit = document.getElementById('chat-memory-summary-limit-input');
-        const chatMemorySummaryPromptInput = document.getElementById('chat-memory-summary-prompt-input');
-        const chatMemoryLongtermInput = document.getElementById('chat-memory-longterm-input');
         const chatMemoryCherishedInput = document.getElementById('chat-memory-cherished-input');
         const chatMemoryScheduleEnabled = document.getElementById('chat-memory-schedule-enabled-toggle');
         const chatMemoryScheduleSleep = document.getElementById('chat-memory-schedule-sleep-input');
@@ -2034,18 +1933,18 @@ document.addEventListener('DOMContentLoaded', () => {
             ...window.imApp.createDefaultMemory(),
             ...(friend.memory || {}),
             overview: chatMemoryOverviewInput ? chatMemoryOverviewInput.value : '',
-            anniversaries: chatMemoryAnniversariesInput ? chatMemoryAnniversariesInput.value : '',
             context: {
                 enabled: chatMemoryContextEnabled ? chatMemoryContextEnabled.checked : true,
                 limit: chatMemoryContextLimit && Number(chatMemoryContextLimit.value) > 0 ? Number(chatMemoryContextLimit.value) : 80,
                 notes: friend.memory?.context?.notes || ''
             },
             summary: {
-                enabled: chatMemorySummaryEnabled ? chatMemorySummaryEnabled.checked : false,
-                limit: chatMemorySummaryLimit && Number(chatMemorySummaryLimit.value) > 0 ? Number(chatMemorySummaryLimit.value) : 80,
-                prompt: chatMemorySummaryPromptInput ? chatMemorySummaryPromptInput.value : ''
+                enabled: false,
+                limit: friend.memory?.summary?.limit || 80,
+                prompt: friend.memory?.summary?.prompt || ''
             },
-            longTerm: chatMemoryLongtermInput ? chatMemoryLongtermInput.value : '',
+            longTerm: friend.memory?.longTerm || '',
+            shortTermEntries: Array.isArray(friend.memory?.shortTermEntries) ? friend.memory.shortTermEntries : [],
             cherished: chatMemoryCherishedInput ? chatMemoryCherishedInput.value : (friend.memory?.cherished || ''),
             schedule: {
                 enabled: chatMemoryScheduleEnabled ? chatMemoryScheduleEnabled.checked : false,
@@ -2077,13 +1976,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function bindChatSettingsMemoryPersistence(friend) {
         const ids = [
             'chat-memory-overview-input',
-            'chat-memory-anniversaries-input',
             'chat-memory-context-enabled-toggle',
             'chat-memory-context-limit-input',
-            'chat-memory-summary-enabled-toggle',
-            'chat-memory-summary-limit-input',
-            'chat-memory-summary-prompt-input',
-            'chat-memory-longterm-input',
             'chat-memory-cherished-input',
             'chat-memory-schedule-enabled-toggle',
             'chat-memory-schedule-sleep-input',
@@ -2148,35 +2042,268 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function syncChatSummaryPromptCollapse(enabled) {
-        const summaryBody = document.getElementById('summary-body');
-        const summaryHeader = document.getElementById('summary-header');
-        if (summaryBody && summaryHeader) {
-            if (enabled) {
-                summaryBody.style.display = 'block';
-                summaryHeader.style.borderBottom = 'none';
-                summaryHeader.style.borderBottomLeftRadius = '0';
-                summaryHeader.style.borderBottomRightRadius = '0';
-            } else {
-                summaryBody.style.display = 'none';
-                summaryHeader.style.borderBottom = 'none';
-                summaryHeader.style.borderBottomLeftRadius = '20px';
-                summaryHeader.style.borderBottomRightRadius = '20px';
-            }
-        }
-    }
-
-    const summaryToggleEl = document.getElementById('chat-memory-summary-enabled-toggle');
-    if (summaryToggleEl) {
-        summaryToggleEl.addEventListener('change', (e) => {
-            syncChatSummaryPromptCollapse(e.target.checked);
-        });
-    }
-
     const scheduleToggleEl = document.getElementById('chat-memory-schedule-enabled-toggle');
     if (scheduleToggleEl) {
         scheduleToggleEl.addEventListener('change', (e) => {
             syncChatScheduleCollapse(e.target.checked);
+        });
+    }
+
+    const manualSummaryBtn = document.getElementById('chat-memory-manual-summary-btn');
+    const manualSummaryModal = document.getElementById('chat-memory-summary-modal');
+    const manualSummaryClose = document.getElementById('chat-memory-summary-close');
+    const manualSummaryConfirm = document.getElementById('chat-memory-summary-confirm');
+    const manualSummaryCountInput = document.getElementById('chat-memory-summary-count-input');
+    const manualSummaryUnsummarizedCount = document.getElementById('chat-memory-unsummarized-count');
+
+    function getChatSummaryMessageCount(friend) {
+        return Array.isArray(friend?.messages) ? friend.messages.length : 0;
+    }
+
+    function getChatSummaryUnsummarizedCount(friend) {
+        const total = getChatSummaryMessageCount(friend);
+        const last = Math.max(0, Number(friend?.memory?.lastSummaryMessageCount) || 0);
+        return Math.max(0, total - Math.min(last, total));
+    }
+
+    function formatSummarySourceMessage(msg, friend) {
+        const speaker = msg.role === 'assistant'
+            ? (friend.nickname || friend.realname || friend.realName || 'Char')
+            : (userState?.name || 'User');
+        const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', { hour12: false }) : '';
+        const content = msg.content || msg.text || '';
+        return `[${time}] ${speaker}: ${content}`;
+    }
+
+    function normalizeSummaryApiEndpoint(config) {
+        let endpoint = config.endpoint || '';
+        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
+        if (!endpoint.endsWith('/chat/completions')) {
+            endpoint = endpoint.endsWith('/v1') ? `${endpoint}/chat/completions` : `${endpoint}/v1/chat/completions`;
+        }
+        return endpoint;
+    }
+
+    function getSummaryResponseContent(data) {
+        const firstChoice = data?.choices?.[0];
+        if (!firstChoice) return '';
+        return firstChoice.message?.content || firstChoice.text || firstChoice.delta?.content || '';
+    }
+
+    function getSummaryEntryTime(entry) {
+        return entry?.lastActivatedAt || entry?.time || entry?.createdAt || '';
+    }
+
+    function parseSummaryDate(value) {
+        if (!value) return null;
+        if (typeof value === 'number') {
+            const numericDate = new Date(value);
+            return Number.isNaN(numericDate.getTime()) ? null : numericDate;
+        }
+        const text = String(value).trim();
+        const normalized = text
+            .replace(/年/g, '-')
+            .replace(/月/g, '-')
+            .replace(/日/g, ' ')
+            .replace(/\./g, '-')
+            .replace(/\//g, '-');
+        const parsed = new Date(normalized);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function decayShortTermMemoryEntries(entries, now = new Date(), activatedIds = new Set()) {
+        if (!Array.isArray(entries)) return [];
+        const dayMs = 24 * 60 * 60 * 1000;
+        return entries.map(entry => {
+            if (!entry) return entry;
+            if (activatedIds.has(String(entry.id))) return entry;
+            const anchorDate = parseSummaryDate(getSummaryEntryTime(entry));
+            if (!anchorDate) return entry;
+            const ageDays = (now.getTime() - anchorDate.getTime()) / dayMs;
+            if (ageDays > 30) {
+                entry.degree = '遗忘';
+            } else if (ageDays > 7) {
+                entry.degree = '低';
+            } else if (ageDays > 1 && entry.degree === '高') {
+                entry.degree = '中';
+            }
+            return entry;
+        });
+    }
+
+    function formatExistingSummaryEntries(friend) {
+        const entries = Array.isArray(friend?.memory?.shortTermEntries) ? friend.memory.shortTermEntries : [];
+        if (entries.length === 0) return '无';
+        return entries.map(entry => [
+            `ID: ${entry.id}`,
+            `标题: ${entry.title || '对话总结'}`,
+            `时间: ${entry.time || ''}`,
+            `事件: ${entry.event || ''}`,
+            `记忆点: ${entry.memoryPoints || ''}`,
+            `记忆程度: ${entry.degree || '高'}`
+        ].join('\n')).join('\n\n');
+    }
+
+    function parseManualSummary(rawText) {
+        const cleanText = String(rawText || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        try {
+            const parsed = JSON.parse(cleanText);
+            const summaryPayload = parsed.summary && typeof parsed.summary === 'object' ? parsed.summary : parsed;
+            const memoryPoints = Array.isArray(summaryPayload.memoryPoints)
+                ? summaryPayload.memoryPoints.join('\n')
+                : (summaryPayload.memoryPoints || summaryPayload['记忆点'] || '');
+            return {
+                activatedEntryIds: Array.isArray(parsed.activatedEntryIds) ? parsed.activatedEntryIds.map(String) : [],
+                title: summaryPayload.title || summaryPayload['标题'] || '对话总结',
+                time: summaryPayload.time || summaryPayload['时间'] || '',
+                event: summaryPayload.event || summaryPayload['事件'] || '',
+                memoryPoints,
+                degree: summaryPayload.degree || summaryPayload['记忆程度'] || '高',
+                raw: rawText
+            };
+        } catch (error) {
+            const pick = (label) => {
+                const match = cleanText.match(new RegExp(`${label}[:：]\\s*([\\s\\S]*?)(?=\\n(?:标题|时间|事件|记忆点|记忆程度)[:：]|$)`));
+                return match ? match[1].trim() : '';
+            };
+            return {
+                activatedEntryIds: [],
+                title: pick('标题') || '对话总结',
+                time: pick('时间'),
+                event: pick('事件'),
+                memoryPoints: pick('记忆点'),
+                degree: pick('记忆程度') || '高',
+                raw: rawText
+            };
+        }
+    }
+
+    async function generateManualChatSummary(friend, count) {
+        const currentApiConfig = window.getApiConfig ? window.getApiConfig() : (window.apiConfig || {});
+        if (!currentApiConfig.endpoint || !currentApiConfig.apiKey) {
+            showToast('请先在设置中配置 API');
+            return null;
+        }
+
+        if (window.imApp.ensureFriendMessagesLoaded) {
+            await window.imApp.ensureFriendMessagesLoaded(friend);
+        }
+
+        const messages = Array.isArray(friend.messages) ? friend.messages : [];
+        const lastCount = Math.max(0, Number(friend.memory?.lastSummaryMessageCount) || 0);
+        const unsummarized = messages.slice(Math.min(lastCount, messages.length));
+        const sourceMessages = unsummarized.slice(0, count);
+        if (sourceMessages.length === 0) {
+            showToast('暂无未总结对话');
+            return null;
+        }
+
+        const charName = friend.nickname || friend.realname || friend.realName || 'Char';
+        const userName = userState?.name || 'User';
+        const now = new Date();
+        const nowString = `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const dialogueText = sourceMessages.map(msg => formatSummarySourceMessage(msg, friend)).join('\n');
+        const existingSummariesText = formatExistingSummaryEntries(friend);
+
+        const prompt = `查看已有的总结，将与本次需要总结的对话的内容相关的记忆点的记忆条目激活（记忆程度改为高）。\n\n已有短期记忆总结：\n${existingSummariesText}\n\n你是${charName}，请站在${charName}的第一人称视角，将以下${sourceMessages.length}条对话进行一次记忆总结，整合精炼成一件完整的事。\n\n当前真实总结时间：${nowString}\nUser 名称：${userName}\n\n必须只输出 JSON，不要 markdown，不要解释。JSON 字段如下：\n{\n  "activatedEntryIds": ["与本次对话相关、需要激活的已有记忆ID，没有则为空数组"],\n  "summary": {\n    "title": "10字内，事件名称",\n    "time": "真实时间，精确到总结时的年月日时",\n    "event": "20-50字，内容为一件完整的事",\n    "memoryPoints": "必须包含情绪/声音/画面/气味/环境五个感官记忆，可适当加1-2个其他记忆点",\n    "degree": "高"\n  }\n}\n\nsummary.degree 只可输出“高”。activatedEntryIds 只能使用已有短期记忆总结中的 ID。\n\n对话：\n${dialogueText}\n\n查看已有的总结，将所有记忆程度超过真实时间1天的高改成中，超过7天的改成低，超过30天的改成遗忘。`;
+
+        const endpoint = normalizeSummaryApiEndpoint(currentApiConfig);
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentApiConfig.apiKey}` },
+            body: JSON.stringify({
+                model: currentApiConfig.model || '',
+                messages: [
+                    { role: 'system', content: '你只输出可解析 JSON。' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: parseFloat(currentApiConfig.temperature) || 0.7
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const summary = parseManualSummary(getSummaryResponseContent(data));
+        summary.id = `stm-${Date.now()}`;
+        summary.time = summary.time || nowString;
+        summary.degree = '高';
+        summary.sourceCount = sourceMessages.length;
+        summary.sourceEndMessageCount = Math.min(messages.length, lastCount + sourceMessages.length);
+        return summary;
+    }
+
+    async function openManualSummaryModal(friend) {
+        if (!friend || !manualSummaryModal) return;
+        if (window.imApp.ensureFriendMessagesLoaded) {
+            await window.imApp.ensureFriendMessagesLoaded(friend);
+        }
+        friend.memory = window.imApp.normalizeFriendData(friend).memory;
+        const unsummarizedCount = getChatSummaryUnsummarizedCount(friend);
+        if (manualSummaryUnsummarizedCount) manualSummaryUnsummarizedCount.textContent = String(unsummarizedCount);
+        if (manualSummaryCountInput) manualSummaryCountInput.value = String(Math.min(80, Math.max(1, unsummarizedCount || 80)));
+        openView(manualSummaryModal);
+    }
+
+    if (manualSummaryBtn) {
+        manualSummaryBtn.addEventListener('click', () => {
+            if (window.imData.currentSettingsFriend) {
+                openManualSummaryModal(window.imData.currentSettingsFriend);
+            }
+        });
+    }
+
+    if (manualSummaryClose && manualSummaryModal) {
+        manualSummaryClose.addEventListener('click', () => closeView(manualSummaryModal));
+    }
+
+    if (manualSummaryConfirm) {
+        manualSummaryConfirm.addEventListener('click', async () => {
+            const friend = window.imData.currentSettingsFriend;
+            if (!friend) return;
+            const count = Math.max(1, Number(manualSummaryCountInput?.value) || 80);
+            manualSummaryConfirm.disabled = true;
+            manualSummaryConfirm.textContent = '生成中...';
+            try {
+                const summary = await generateManualChatSummary(friend, count);
+                if (!summary) return;
+                const saved = await commitNamedFriendChange(friend, (targetFriend) => {
+                    targetFriend.memory = window.imApp.normalizeFriendData(targetFriend).memory;
+                    if (!Array.isArray(targetFriend.memory.shortTermEntries)) targetFriend.memory.shortTermEntries = [];
+                    const now = new Date();
+                    const nowString = `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const activatedIds = new Set(Array.isArray(summary.activatedEntryIds) ? summary.activatedEntryIds.map(String) : []);
+                    targetFriend.memory.shortTermEntries.forEach(entry => {
+                        if (entry && activatedIds.has(String(entry.id))) {
+                            entry.degree = '高';
+                            entry.lastActivatedAt = nowString;
+                        }
+                    });
+                    decayShortTermMemoryEntries(targetFriend.memory.shortTermEntries, now, activatedIds);
+                    summary.lastActivatedAt = nowString;
+                    targetFriend.memory.shortTermEntries.push(summary);
+                    targetFriend.memory.lastSummaryMessageCount = Number(summary.sourceEndMessageCount) || (Array.isArray(targetFriend.messages) ? targetFriend.messages.length : 0);
+                }, { silent: true, immediate: true });
+
+                if (saved) {
+                    const latestFriend = window.imData.friends.find(item => String(item.id) === String(friend.id)) || friend;
+                    latestFriend.memory = window.imApp.normalizeFriendData(latestFriend).memory;
+                    window.imData.currentSettingsFriend = latestFriend;
+                    if (window.imApp.renderMemoryView) window.imApp.renderMemoryView();
+                    closeView(manualSummaryModal);
+                    showToast('总结已存入我的 iPhone');
+                } else {
+                    showToast('总结保存失败');
+                }
+            } catch (error) {
+                console.error('Manual summary failed', error);
+                showToast('总结生成失败');
+            } finally {
+                manualSummaryConfirm.disabled = false;
+                manualSummaryConfirm.textContent = '确认';
+            }
         });
     }
 
@@ -2191,7 +2318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         initChatSettingsInteractions();
         setActiveChatSettingsTab('info');
-        syncChatSummaryPromptCollapse(!!friend.memory.summary.enabled);
         syncChatScheduleCollapse(friend.memory.schedule ? !!friend.memory.schedule.enabled : false);
 
         if (bubbleStyleToggle) {
@@ -2210,26 +2336,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const chatMemoryOverviewInput = document.getElementById('chat-memory-overview-input');
-        const chatMemoryAnniversariesInput = document.getElementById('chat-memory-anniversaries-input');
         const chatMemoryContextEnabled = document.getElementById('chat-memory-context-enabled-toggle');
         const chatMemoryContextLimit = document.getElementById('chat-memory-context-limit-input');
-        const chatMemorySummaryEnabled = document.getElementById('chat-memory-summary-enabled-toggle');
-        const chatMemorySummaryLimit = document.getElementById('chat-memory-summary-limit-input');
-        const chatMemorySummaryPromptInput = document.getElementById('chat-memory-summary-prompt-input');
-        const chatMemoryLongtermInput = document.getElementById('chat-memory-longterm-input');
         const chatMemoryCherishedInput = document.getElementById('chat-memory-cherished-input');
         const chatMemoryScheduleEnabled = document.getElementById('chat-memory-schedule-enabled-toggle');
         const chatMemoryScheduleSleep = document.getElementById('chat-memory-schedule-sleep-input');
         const chatMemoryScheduleWake = document.getElementById('chat-memory-schedule-wake-input');
 
         if (chatMemoryOverviewInput) chatMemoryOverviewInput.value = friend.memory.overview || '';
-        if (chatMemoryAnniversariesInput) chatMemoryAnniversariesInput.value = friend.memory.anniversaries || '';
         if (chatMemoryContextEnabled) chatMemoryContextEnabled.checked = typeof friend.memory.context.enabled === 'boolean' ? friend.memory.context.enabled : true;
         if (chatMemoryContextLimit) chatMemoryContextLimit.value = friend.memory.context.limit || 80;
-        if (chatMemorySummaryEnabled) chatMemorySummaryEnabled.checked = !!friend.memory.summary.enabled;
-        if (chatMemorySummaryLimit) chatMemorySummaryLimit.value = friend.memory.summary.limit || 80;
-        if (chatMemorySummaryPromptInput) chatMemorySummaryPromptInput.value = friend.memory.summary.prompt || '';
-        if (chatMemoryLongtermInput) chatMemoryLongtermInput.value = friend.memory.longTerm || '';
         if (chatMemoryCherishedInput) chatMemoryCherishedInput.value = friend.memory.cherished || '';
         if (chatMemoryScheduleEnabled) chatMemoryScheduleEnabled.checked = friend.memory.schedule ? !!friend.memory.schedule.enabled : false;
         if (chatMemoryScheduleSleep) chatMemoryScheduleSleep.value = friend.memory.schedule ? (friend.memory.schedule.sleepTime || '23:00') : '23:00';

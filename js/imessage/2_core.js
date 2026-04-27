@@ -37,6 +37,7 @@ window.imApp.createDefaultMemory = function() {
         context: { enabled: true, limit: 80, notes: '' },
         summary: { enabled: false, limit: 80, prompt: '' },
         longTerm: '',
+        shortTermEntries: [],
         cherished: '',
         longTermEntries: [],
         cherishedEntries: [],
@@ -86,7 +87,7 @@ window.imApp.createDefaultProfilePanel = function(friend = {}) {
         action: friend?.profilePanel?.action || '暂无动作',
         mood: friend?.profilePanel?.mood || '平静',
         expression: friend?.profilePanel?.expression || '自然',
-        affection: typeof friend?.profilePanel?.affection === 'number' ? friend.profilePanel.affection : 50,
+        affection: typeof friend?.profilePanel?.affection === 'number' ? friend.profilePanel.affection : 0,
         affectionChange: typeof friend?.profilePanel?.affectionChange === 'number' ? friend.profilePanel.affectionChange : 0,
         status: friend?.profilePanel?.status || friend?.status || 'online',
         thoughtHistory: Array.isArray(friend?.profilePanel?.thoughtHistory) ? friend.profilePanel.thoughtHistory : [],
@@ -170,6 +171,18 @@ window.imApp.normalizeFriendData = function(friend) {
             prompt: memory.summary?.prompt || defaultMemory.summary.prompt
         },
         longTerm: memory.longTerm || defaultMemory.longTerm,
+        shortTermEntries: Array.isArray(memory.shortTermEntries)
+            ? memory.shortTermEntries.map((entry, index) => ({
+                id: entry?.id != null ? entry.id : `shortterm-${index}`,
+                title: entry?.title || '对话总结',
+                time: entry?.time || entry?.createdAt || '',
+                event: entry?.event || entry?.content || '',
+                memoryPoints: entry?.memoryPoints || entry?.points || '',
+                degree: entry?.degree || '高',
+                lastActivatedAt: entry?.lastActivatedAt || entry?.activatedAt || entry?.time || entry?.createdAt || '',
+                raw: entry?.raw || ''
+            }))
+            : defaultMemory.shortTermEntries,
         longTermEntries: Array.isArray(memory.longTermEntries)
             ? memory.longTermEntries.map((entry, index) => ({
                 id: entry?.id != null ? entry.id : `longterm-${index}`,
@@ -178,7 +191,7 @@ window.imApp.normalizeFriendData = function(friend) {
                 createdAt: entry?.createdAt || ''
             }))
             : defaultMemory.longTermEntries,
-        lastSummaryMessageCount: typeof memory.lastSummaryMessageCount === 'number' ? memory.lastSummaryMessageCount : (normalized.messages.length || 0),
+        lastSummaryMessageCount: typeof memory.lastSummaryMessageCount === 'number' ? memory.lastSummaryMessageCount : 0,
         cherished: memory.cherished || defaultMemory.cherished,
         cherishedEntries: Array.isArray(memory.cherishedEntries)
             ? memory.cherishedEntries.map((entry, index) => ({
@@ -3101,13 +3114,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Bottom Nav Logic ---
     const navHomeBtn = document.getElementById('nav-home-btn');
     const navChatsBtn = document.getElementById('nav-chats-btn');
+    const navMemoryBtn = document.getElementById('nav-memory-btn');
     const navMomentsBtn = document.getElementById('nav-moments-btn');
     const lineNavIndicator = document.getElementById('line-nav-indicator');
     const imBottomNavContainer = document.querySelector('.line-bottom-nav-container');
     
     const imContent = document.querySelector('.line-content'); 
     const chatsContent = document.getElementById('chats-content');
+    const memoryContent = document.getElementById('memory-content');
+    const memoryTopFriendsScroll = document.getElementById('memory-top-friends-scroll');
+    const memorySelectedName = document.getElementById('memory-selected-name');
+    const memoryLocationSheet = document.getElementById('memory-location-sheet');
+    const memoryLocationSheetContent = document.getElementById('memory-location-sheet-content');
+    const memoryEntryDetailModal = document.getElementById('memory-entry-detail-modal');
+    const memoryEntryDetailTitle = document.getElementById('memory-entry-detail-title');
+    const memoryEntryDetailBody = document.getElementById('memory-entry-detail-body');
+    const memoryEntryDetailClose = document.getElementById('memory-entry-detail-close');
     const momentsContent = document.getElementById('moments-content');
+    let currentMemoryFriendId = null;
 
     function updateLineNavIndicator(activeItem) {
         if (!activeItem || !lineNavIndicator) return;
@@ -3123,13 +3147,226 @@ document.addEventListener('DOMContentLoaded', () => {
         if(navHomeBtn && navHomeBtn.classList.contains('active')) updateLineNavIndicator(navHomeBtn);
     }, 100);
 
+    function getMemoryFriends() {
+        const allFriends = Array.isArray(window.imData?.friends) ? window.imData.friends : [];
+        return allFriends.filter(f => f && f.type !== 'group' && f.type !== 'official' && f.type !== 'npc');
+    }
+
+    function getMemoryFriendName(friend) {
+        return friend?.nickname || friend?.realname || friend?.realName || 'Unknown';
+    }
+
+    function escapeMemoryHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function setActiveMemoryFriend(friend, options = {}) {
+        if (!friend) return;
+        currentMemoryFriendId = friend.id;
+        if (memorySelectedName) memorySelectedName.textContent = getMemoryFriendName(friend);
+
+        if (memoryTopFriendsScroll) {
+            const items = memoryTopFriendsScroll.querySelectorAll('.memory-friend-story-item');
+            items.forEach(item => {
+                const isActive = String(item.dataset.friendId) === String(friend.id);
+                item.classList.toggle('active', isActive);
+                if (isActive && options.scroll !== false) {
+                    item.scrollIntoView({ behavior: options.instant ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+                }
+            });
+        }
+    }
+
+    function updateActiveMemoryFriendFromScroll() {
+        if (!memoryTopFriendsScroll) return;
+        const items = memoryTopFriendsScroll.querySelectorAll('.memory-friend-story-item');
+        if (items.length === 0) return;
+
+        const containerCenter = memoryTopFriendsScroll.getBoundingClientRect().left + memoryTopFriendsScroll.offsetWidth / 2;
+        let closestItem = null;
+        let minDistance = Infinity;
+
+        items.forEach(item => {
+            const rect = item.getBoundingClientRect();
+            const itemCenter = rect.left + rect.width / 2;
+            const distance = Math.abs(containerCenter - itemCenter);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestItem = item;
+            }
+        });
+
+        if (!closestItem) return;
+        const friend = getMemoryFriends().find(f => String(f.id) === String(closestItem.dataset.friendId));
+        if (friend) setActiveMemoryFriend(friend, { scroll: false });
+    }
+
+    function renderMemoryView() {
+        if (!memoryTopFriendsScroll) return;
+
+        const validFriends = getMemoryFriends();
+        memoryTopFriendsScroll.innerHTML = '';
+
+        if (validFriends.length === 0) {
+            currentMemoryFriendId = null;
+            if (memorySelectedName) memorySelectedName.textContent = '';
+            memoryTopFriendsScroll.innerHTML = '<div class="memory-empty-state">暂无好友</div>';
+            return;
+        }
+
+        let activeFriend = validFriends.find(f => String(f.id) === String(currentMemoryFriendId)) || validFriends[0];
+
+        validFriends.forEach(friend => {
+            const item = document.createElement('div');
+            item.className = 'memory-friend-story-item';
+            item.dataset.friendId = friend.id;
+
+            const avatarWrapper = document.createElement('div');
+            avatarWrapper.className = 'memory-friend-story-avatar-wrapper';
+
+            if (friend.avatarUrl) {
+                const img = document.createElement('img');
+                img.src = friend.avatarUrl;
+                img.alt = '';
+                img.className = 'memory-friend-story-avatar-img';
+                avatarWrapper.appendChild(img);
+            } else {
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-user memory-friend-story-avatar-icon';
+                avatarWrapper.appendChild(icon);
+            }
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'memory-friend-story-name';
+            nameEl.textContent = getMemoryFriendName(friend);
+
+            item.appendChild(avatarWrapper);
+            item.appendChild(nameEl);
+            item.addEventListener('click', () => setActiveMemoryFriend(friend));
+            memoryTopFriendsScroll.appendChild(item);
+        });
+
+        if (!memoryTopFriendsScroll.dataset.memoryScrollBound) {
+            let scrollTimer = null;
+            memoryTopFriendsScroll.addEventListener('scroll', () => {
+                if (scrollTimer) clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(updateActiveMemoryFriendFromScroll, 80);
+            }, { passive: true });
+            memoryTopFriendsScroll.dataset.memoryScrollBound = 'true';
+        }
+
+        setActiveMemoryFriend(activeFriend, { instant: true });
+    }
+
+    function openMemoryLocationSheet() {
+        const location = this?.dataset?.memoryLocation || '';
+        if (memoryLocationSheet && window.openView) {
+            renderMemoryLocationSheet(location);
+            window.openView(memoryLocationSheet);
+        }
+    }
+
+    function getCurrentMemoryFriend() {
+        const friends = getMemoryFriends();
+        return friends.find(f => String(f.id) === String(currentMemoryFriendId)) || friends[0] || null;
+    }
+
+    function showMemoryEntryDetail(entry) {
+        if (!entry || !memoryEntryDetailModal || !memoryEntryDetailBody) return;
+        if (memoryEntryDetailTitle) memoryEntryDetailTitle.textContent = entry.title || '记忆详情';
+        memoryEntryDetailBody.innerHTML = `
+            <div class="memory-entry-field">
+                <div class="memory-entry-field-label">时间</div>
+                <div class="memory-entry-field-value">${escapeMemoryHtml(entry.time || '')}</div>
+            </div>
+            <div class="memory-entry-field">
+                <div class="memory-entry-field-label">事件</div>
+                <div class="memory-entry-field-value">${escapeMemoryHtml(entry.event || '')}</div>
+            </div>
+            <div class="memory-entry-field">
+                <div class="memory-entry-field-label">记忆点</div>
+                <div class="memory-entry-field-value">${escapeMemoryHtml(entry.memoryPoints || '')}</div>
+            </div>
+            <div class="memory-entry-field">
+                <div class="memory-entry-field-label">记忆程度</div>
+                <div class="memory-entry-field-value">${escapeMemoryHtml(entry.degree || '高')}</div>
+            </div>
+        `;
+        if (window.openView) window.openView(memoryEntryDetailModal);
+    }
+
+    function renderMemoryLocationSheet(location) {
+        if (!memoryLocationSheetContent) return;
+
+        if (location !== 'iphone') {
+            memoryLocationSheetContent.innerHTML = '';
+            return;
+        }
+
+        const friend = getCurrentMemoryFriend();
+        const normalizedFriend = friend ? window.imApp.normalizeFriendData(friend) : null;
+        // "我的 iPhone" acts as the short-term memory library for manually generated chat summaries.
+        const entries = Array.isArray(normalizedFriend?.memory?.shortTermEntries)
+            ? normalizedFriend.memory.shortTermEntries
+            : [];
+
+        if (entries.length === 0) {
+            memoryLocationSheetContent.innerHTML = `
+                <div class="memory-sheet-title">我的 iPhone</div>
+                <div class="memory-short-list">
+                    <div class="memory-short-empty">暂无短期记忆</div>
+                </div>
+            `;
+            return;
+        }
+
+        memoryLocationSheetContent.innerHTML = `
+            <div class="memory-sheet-title">我的 iPhone</div>
+            <div class="memory-short-list">
+                ${entries.slice().reverse().map(entry => `
+                    <button type="button" class="memory-short-item" data-memory-entry-id="${entry.id}">
+                        <span>${escapeMemoryHtml(entry.title || '对话总结')}</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
+        memoryLocationSheetContent.querySelectorAll('.memory-short-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const entryId = btn.getAttribute('data-memory-entry-id');
+                const target = entries.find(entry => String(entry.id) === String(entryId));
+                if (target) showMemoryEntryDetail(target);
+            });
+        });
+    }
+
+    document.querySelectorAll('.memory-file-row').forEach(row => {
+        row.addEventListener('click', openMemoryLocationSheet);
+    });
+
+    if (memoryEntryDetailClose && memoryEntryDetailModal) {
+        memoryEntryDetailClose.addEventListener('click', () => {
+            if (window.closeView) window.closeView(memoryEntryDetailModal);
+        });
+    }
+
+    window.imApp.renderMemoryView = renderMemoryView;
+
     function hideAllTabs() {
         if(imContent) imContent.style.display = 'none';
         if(chatsContent) chatsContent.style.display = 'none';
+        if(memoryContent) memoryContent.style.display = 'none';
         if(momentsContent) momentsContent.style.display = 'none';
         
         if(navHomeBtn) navHomeBtn.classList.remove('active');
         if(navChatsBtn) navChatsBtn.classList.remove('active');
+        if(navMemoryBtn) navMemoryBtn.classList.remove('active');
         if(navMomentsBtn) navMomentsBtn.classList.remove('active');
         
         const imHeaderRight = document.querySelector('.line-header-right');
@@ -3158,6 +3395,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             navChatsBtn.classList.add('active');
             updateLineNavIndicator(navChatsBtn);
+        });
+    }
+
+    if (navMemoryBtn) {
+        navMemoryBtn.addEventListener('click', () => {
+            hideAllTabs();
+            if(memoryContent) {
+                memoryContent.style.display = 'flex';
+                memoryContent.style.flexDirection = 'column';
+                renderMemoryView();
+            }
+            if(imBottomNavContainer) imBottomNavContainer.style.display = 'flex';
+            navMemoryBtn.classList.add('active');
+            updateLineNavIndicator(navMemoryBtn);
         });
     }
 

@@ -1228,6 +1228,50 @@
                     </div>
                 </div>
 
+                <!-- Memory View (Hidden by default) -->
+                <div class="memory-content" id="memory-content">
+                    <div class="memory-top-friends-scroll" id="memory-top-friends-scroll">
+                        <!-- Friend avatars will be injected here -->
+                    </div>
+
+                    <div class="memory-library-scroll">
+                        <div class="memory-selected-name" id="memory-selected-name"></div>
+
+                        <div class="memory-search-bar">
+                            <i class="fas fa-search"></i>
+                            <span>搜索</span>
+                        </div>
+
+                        <div class="memory-section-title">位置</div>
+                        <div class="memory-files-group">
+                            <div class="memory-file-row" data-memory-location="icloud">
+                                <i class="fas fa-cloud memory-file-icon"></i>
+                                <span>iCloud 云盘</span>
+                                <i class="fas fa-chevron-right memory-file-chevron"></i>
+                            </div>
+                            <div class="memory-file-row" data-memory-location="iphone">
+                                <i class="fas fa-mobile-alt memory-file-icon"></i>
+                                <span>我的 iPhone</span>
+                                <i class="fas fa-chevron-right memory-file-chevron"></i>
+                            </div>
+                            <div class="memory-file-row" data-memory-location="deleted">
+                                <i class="fas fa-trash-alt memory-file-icon"></i>
+                                <span>最近删除</span>
+                                <i class="fas fa-chevron-right memory-file-chevron"></i>
+                            </div>
+                        </div>
+
+                        <div class="memory-section-title">个人收藏</div>
+                        <div class="memory-files-group">
+                            <div class="memory-file-row" data-memory-location="downloads">
+                                <i class="fas fa-arrow-down memory-file-icon memory-download-icon"></i>
+                                <span>下载项</span>
+                                <i class="fas fa-chevron-right memory-file-chevron"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Moments View (Formerly Calls) -->
                 <div class="moments-content" id="moments-content" style="display: none; background-color: #ffffff; height: 100%; flex-direction: column;">
                     <!-- Top Bar (Transparent) -->
@@ -1521,11 +1565,34 @@
                             <i class="fas fa-comment"></i>
                             <span>Chats</span>
                         </div>
+                        <div class="line-nav-item" id="nav-memory-btn">
+                            <i class="fas fa-brain"></i>
+                            <span>Memory</span>
+                        </div>
                         <div class="line-nav-item" id="nav-moments-btn">
                             <i class="far fa-compass"></i>
                             <span>Moments</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="bottom-sheet-overlay detail-sheet-overlay" id="memory-location-sheet" style="z-index: 1200;">
+                <div class="bottom-sheet memory-location-bottom-sheet">
+                    <div class="sheet-handle"></div>
+                    <div class="memory-location-sheet-empty" id="memory-location-sheet-content"></div>
+                </div>
+            </div>
+
+            <div class="bottom-sheet-overlay detail-sheet-overlay wb-centered-modal-overlay" id="memory-entry-detail-modal" style="z-index: 1300; background: rgba(0,0,0,0.35);">
+                <div class="wb-centered-modal-card memory-entry-detail-card">
+                    <div class="wb-centered-modal-header" style="position: relative;">
+                        <div class="wb-centered-modal-title" id="memory-entry-detail-title">记忆详情</div>
+                        <div class="wb-centered-modal-close" id="memory-entry-detail-close" style="position: absolute; right: 16px; top: 16px; font-size: 18px; color: #8e8e93; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    </div>
+                    <div class="wb-centered-modal-body memory-entry-detail-body" id="memory-entry-detail-body"></div>
                 </div>
             </div>
 
@@ -3210,16 +3277,6 @@
                                     <div class="settings-text">总览</div>
                                     <i class="fas fa-chevron-right arrow"></i>
                                 </div>
-                                <div class="settings-item" id="chat-memory-anniversaries-btn">
-                                    <div class="settings-icon" style="background-color: #ff2d55;"><i class="fas fa-calendar-alt"></i></div>
-                                    <div class="settings-text">纪念日</div>
-                                    <i class="fas fa-chevron-right arrow"></i>
-                                </div>
-                                <div class="settings-item" id="chat-memory-longterm-btn">
-                                    <div class="settings-icon" style="background-color: #ff9500;"><i class="fas fa-brain"></i></div>
-                                    <div class="settings-text">长期记忆</div>
-                                    <i class="fas fa-chevron-right arrow"></i>
-                                </div>
                                 <div class="settings-item" id="chat-memory-cherished-btn" style="border-bottom: none;">
                                     <div class="settings-icon" style="background-color: #ff2d55;"><i class="fas fa-heart"></i></div>
                                     <div class="settings-text">珍视回忆</div>
@@ -3240,25 +3297,7 @@
                                     </div>
                                 </div>
 
-                                <!-- 自动总结折叠开关 (无图标) -->
-                                <div class="form-item" style="justify-content: space-between; border-bottom: none; transition: border-radius 0.2s;" id="summary-header">
-                                    <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">自动总结</label>
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <input type="number" id="chat-memory-summary-limit-input" style="width: 50px; text-align: center; border: 1px solid #e5e5ea; border-radius: 8px; padding: 4px; font-size: 15px;" value="80">
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="chat-memory-summary-enabled-toggle">
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <!-- 自动总结展开的输入框 -->
-                                <div id="summary-body" style="display: none; padding: 0 16px 16px 16px; background: #fff; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
-                                    <textarea id="chat-memory-summary-prompt-input" class="global-textarea" placeholder="输入自动总结提示词..."></textarea>
-                                </div>
-                            </div>
-
-                            <div class="settings-group fully-rounded" style="margin: 10px 16px; overflow: visible;">
-                                <div class="form-item" style="justify-content: space-between; border-bottom: none; transition: border-radius 0.2s;" id="schedule-header">
+                                <div class="form-item" style="justify-content: space-between; border-bottom: 1px solid var(--separator-color); transition: border-radius 0.2s;" id="schedule-header">
                                     <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">启用作息时间</label>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="chat-memory-schedule-enabled-toggle">
@@ -3277,6 +3316,12 @@
                                     <div style="font-size: 13px; color: #8e8e93; line-height: 1.6; padding: 10px 16px; border-top: 1px solid var(--separator-color);">
                                         开启后，在睡觉时间段内，角色会自动显示为离线状态，并在回复时带有自动回复标记。
                                     </div>
+                                </div>
+
+                                <div class="settings-item" id="chat-memory-manual-summary-btn" style="border-bottom: none;">
+                                    <div class="settings-icon" style="background-color: #007aff;"><i class="fas fa-wand-magic-sparkles"></i></div>
+                                    <div class="settings-text">总结对话</div>
+                                    <i class="fas fa-chevron-right arrow"></i>
                                 </div>
                             </div>
 
@@ -3314,6 +3359,28 @@
                             <div class="sheet-action" id="modal-confirm-btn" style="flex: 1; margin: 0; background: #ff3b30; color: #fff; font-weight: 600; font-size: 15px; padding: 12px; border-radius: 12px;">确定</div>
                             <div class="sheet-action" id="modal-prompt-confirm-btn" style="flex: 1; margin: 0; background: #007aff; color: #fff; font-weight: 600; font-size: 15px; padding: 12px; border-radius: 12px; display: none;">确定</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+<div class="bottom-sheet-overlay detail-sheet-overlay wb-centered-modal-overlay" id="chat-memory-summary-modal" style="z-index: 1300; background: rgba(0,0,0,0.35);">
+                <div class="wb-centered-modal-card memory-summary-card">
+                    <div class="wb-centered-modal-header" style="position: relative;">
+                        <div class="wb-centered-modal-title">总结对话</div>
+                        <div class="wb-centered-modal-close" id="chat-memory-summary-close" style="position: absolute; right: 16px; top: 16px; font-size: 18px; color: #8e8e93; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    </div>
+                    <div class="wb-centered-modal-body memory-summary-body">
+                        <div class="memory-summary-count-card">
+                            <div class="memory-summary-label">未总结条数</div>
+                            <div class="memory-summary-count" id="chat-memory-unsummarized-count">0</div>
+                        </div>
+                        <div class="memory-summary-form-row">
+                            <label for="chat-memory-summary-count-input">总结条数</label>
+                            <input type="number" id="chat-memory-summary-count-input" value="80" min="1">
+                        </div>
+                        <button type="button" id="chat-memory-summary-confirm" class="memory-summary-confirm-btn">确认</button>
                     </div>
                 </div>
             </div>
