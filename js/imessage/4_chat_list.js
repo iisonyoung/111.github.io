@@ -25,7 +25,9 @@ function getFriendChatSummary(friend) {
         let count = Number(friend.messageCount) || 0;
 
         if (lastLoadedMsg) {
-            preview = lastLoadedMsg.content || lastLoadedMsg.text || preview || '';
+            preview = window.imApp.getFriendMessagePreview
+                ? (window.imApp.getFriendMessagePreview(lastLoadedMsg) || preview || '')
+                : (lastLoadedMsg.content || lastLoadedMsg.text || preview || '');
             timestamp = Number(lastLoadedMsg.timestamp) || timestamp || 0;
             count = loadedMessages.length;
         }
@@ -83,6 +85,7 @@ function updateChatsView() {
                 if(listContainer) listContainer.style.display = 'none';
             }
         }
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
     }
 
 function buildChatAvatarHtml(friend) {
@@ -135,13 +138,15 @@ function buildChatAvatarHtml(friend) {
         item.dataset.friendId = String(friend.id);
         item.innerHTML = isPinned
             ? `
-                <div class="chat-avatar">${buildChatAvatarHtml(friend)}</div>
+                <div style="position: relative; display: inline-block;">
+                    <div class="chat-avatar">${buildChatAvatarHtml(friend)}</div>
+                    ${buildChatUnreadHtml(friend)}
+                </div>
                 <div class="chat-info">
                     <div class="chat-row-top">
                         <div class="chat-name">${buildChatNameHtml(friend)}</div>
                         <div style="display: flex; flex-direction: column; align-items: flex-end;">
                             <div class="chat-time">${timeStr}</div>
-                            ${buildChatUnreadHtml(friend)}
                         </div>
                     </div>
                     <div class="chat-message">${msgPreview}</div>
@@ -149,13 +154,15 @@ function buildChatAvatarHtml(friend) {
                 <div class="pin-icon"><i class="fas fa-thumbtack"></i></div>
             `
             : `
-                <div class="chat-avatar">${buildChatAvatarHtml(friend)}</div>
+                <div style="position: relative; display: inline-block;">
+                    <div class="chat-avatar">${buildChatAvatarHtml(friend)}</div>
+                    ${buildChatUnreadHtml(friend)}
+                </div>
                 <div class="chat-info">
                     <div class="chat-row-top">
                         <div class="chat-name">${buildChatNameHtml(friend)}</div>
                         <div style="display: flex; flex-direction: column; align-items: flex-end;">
                             <div class="chat-time">${timeStr}</div>
-                            ${buildChatUnreadHtml(friend)}
                         </div>
                     </div>
                     <div class="chat-message">${msgPreview}</div>
@@ -241,6 +248,8 @@ function buildChatAvatarHtml(friend) {
         if (unpinnedFriends.length === 0) {
             normalContainer.innerHTML = '';
         }
+
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
     }
 
     window.imChat.updateChatsView = updateChatsView;

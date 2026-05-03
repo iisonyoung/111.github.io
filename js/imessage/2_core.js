@@ -317,6 +317,7 @@ window.imApp.normalizeFriendData = function(friend) {
     normalized.statusCssEnabled = !!normalized.statusCssEnabled;
     normalized.statusCss = normalized.statusCss || '';
     normalized.isPinned = !!normalized.isPinned;
+    normalized.unreadCount = Math.max(0, Number(normalized.unreadCount) || 0);
     normalized.showTimestamp = !!normalized.showTimestamp;
     normalized.boundBooks = Array.isArray(normalized.boundBooks) ? normalized.boundBooks : [];
     normalized.momentsCover = normalized.momentsCover || null;
@@ -419,7 +420,19 @@ window.imApp.formatMessageForApiContext = function(message, friend, options = {}
     const isGroupChat = normalizedFriend.type === 'group';
     let apiContent = normalizedMessage.content || '';
 
-    if (normalizedMessage.type === 'voice_call_record') {
+    if (normalizedMessage.type === 'voice_message') {
+        const voiceText = normalizedMessage.transcript || normalizedMessage.text || '';
+        apiContent = normalizedMessage.role === 'user'
+            ? `[用户发了一条语音消息，语音内容：${voiceText}]`
+            : `[你发了一条语音消息，语音内容：${voiceText}]`;
+    } else if (normalizedMessage.type === 'sticker') {
+        const stickerName = normalizedMessage.stickerName || normalizedMessage.text || '表情包';
+        const stickerCategory = normalizedMessage.stickerCategory || '';
+        const stickerLabel = stickerCategory ? `${stickerCategory} / ${stickerName}` : stickerName;
+        apiContent = normalizedMessage.role === 'user'
+            ? `[用户发了一个表情包：${stickerLabel}]`
+            : `[你发了一个表情包：${stickerLabel}]`;
+    } else if (normalizedMessage.type === 'voice_call_record') {
         const duration = normalizedMessage.duration || 0;
         const callDurationText = `${Math.floor(duration / 60)}分${duration % 60}秒`;
         const callMessages = normalizedMessage.callMessages || [];
@@ -562,8 +575,7 @@ window.imApp.ensureFriendMessagesLoaded = async function(friendOrId, options = {
             const lastMessage = targetFriend.messages[targetFriend.messages.length - 1];
             targetFriend.lastMessageTimestamp = Number(lastMessage?.timestamp) || targetFriend.lastMessageTimestamp || 0;
             targetFriend.lastMessagePreview =
-                lastMessage?.content ||
-                lastMessage?.text ||
+                window.imApp.getFriendMessagePreview(lastMessage) ||
                 targetFriend.lastMessagePreview ||
                 '';
         }
@@ -623,6 +635,12 @@ window.imApp.getFriendMessagePreview = function(message) {
     if (targetMessage.type === 'image') {
         return targetMessage.text || '[图片]';
     }
+    if (targetMessage.type === 'voice_message') {
+        return `[语音] ${targetMessage.transcript || targetMessage.text || ''}`.trim();
+    }
+    if (targetMessage.type === 'sticker') {
+        return `[表情] ${targetMessage.stickerName || targetMessage.text || ''}`.trim();
+    }
     if (targetMessage.type === 'moment_forward') {
         return '[朋友圈]';
     }
@@ -650,6 +668,64 @@ window.imApp.syncFriendMessageSummary = function(friend) {
         : '';
 
     return friend;
+};
+
+window.imApp.getTotalUnreadCount = function() {
+    return (Array.isArray(window.imData.friends) ? window.imData.friends : [])
+        .reduce((total, friend) => total + Math.max(0, Number(friend?.unreadCount) || 0), 0);
+};
+
+window.imApp.updateChatsUnreadBadges = function() {
+    const navChatsBtn = document.getElementById('nav-chats-btn');
+    if (!navChatsBtn) return;
+
+    let badge = navChatsBtn.querySelector('.nav-chats-unread-badge');
+    const totalUnread = window.imApp.getTotalUnreadCount();
+    const shouldShow = totalUnread > 0 && !navChatsBtn.classList.contains('active');
+
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'nav-chats-unread-badge';
+        badge.style.cssText = 'position:absolute; top:6px; right:14px; min-width:16px; height:16px; padding:0 4px; border-radius:999px; background:#ff3b30; color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; box-sizing:border-box; display:none; pointer-events:none;';
+        navChatsBtn.style.position = navChatsBtn.style.position || 'relative';
+        navChatsBtn.appendChild(badge);
+    }
+
+    badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread);
+    badge.style.display = shouldShow ? 'block' : 'none';
+};
+
+window.imApp.clearFriendUnread = async function(friendId, options = {}) {
+    const safeFriendId = String(friendId);
+    const targetFriend = (window.imData.friends || []).find(
+        friend => String(friend.id) === safeFriendId
+    );
+    if (!targetFriend) return false;
+
+    if (!targetFriend.unreadCount) {
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
+        return true;
+    }
+
+    targetFriend.unreadCount = 0;
+    try {
+        if (window.imStorage?.saveFriendMeta) {
+            await window.imStorage.saveFriendMeta(targetFriend);
+        } else if (window.imApp.commitFriendChange) {
+            await window.imApp.commitFriendChange(safeFriendId, (friend) => {
+                if (friend) friend.unreadCount = 0;
+            }, { silent: true, metaOnly: true });
+        }
+    } catch (error) {
+        console.error('Failed to clear unread count', error);
+        if (!options.silent && window.showToast) window.showToast('未读状态保存失败');
+        return false;
+    } finally {
+        if (window.imChat?.renderChatsList) window.imChat.renderChatsList();
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
+    }
+
+    return true;
 };
 
 window.imApp.reindexFriendMessages = function(friend) {
@@ -925,10 +1001,19 @@ window.imApp.appendFriendMessage = async function(friendId, message, options = {
     if (!Array.isArray(targetFriend.messages)) targetFriend.messages = [];
 
     const targetMessage = message && typeof message === 'object' ? message : {};
+    const previousUnreadCount = Math.max(0, Number(targetFriend.unreadCount) || 0);
     const nextOrder = targetFriend.messages.length;
     targetMessage.__messageOrder = nextOrder;
     targetFriend.messages.push(targetMessage);
     window.imApp.syncFriendMessageSummary(targetFriend);
+
+    const isIncomingMessage = targetMessage.role !== 'user';
+    const isActiveChat = window.imData.currentActiveFriend &&
+        String(window.imData.currentActiveFriend.id) === safeFriendId;
+    if (isIncomingMessage && !isActiveChat) {
+        targetFriend.unreadCount = Math.max(0, Number(targetFriend.unreadCount) || 0) + 1;
+    }
+
     window.imApp.syncActiveFriendReference(targetFriend);
 
     try {
@@ -948,6 +1033,8 @@ window.imApp.appendFriendMessage = async function(friendId, message, options = {
         }
         targetMessage.__messageOrder = nextOrder;
         window.imApp.saveState.lastError = null;
+        if (window.imChat?.renderChatsList) window.imChat.renderChatsList();
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         return true;
     } catch (e) {
         console.error('Failed to append friend message', e);
@@ -958,7 +1045,10 @@ window.imApp.appendFriendMessage = async function(friendId, message, options = {
         });
         window.imApp.reindexFriendMessages(targetFriend);
         window.imApp.syncFriendMessageSummary(targetFriend);
+        targetFriend.unreadCount = previousUnreadCount;
         window.imApp.syncActiveFriendReference(targetFriend);
+        if (window.imChat?.renderChatsList) window.imChat.renderChatsList();
+        if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         window.imApp.saveState.lastError = e;
         if (!options.silent && window.showToast) {
             window.showToast('消息保存失败');
@@ -1745,6 +1835,95 @@ window.imApp.commitMomentChange = async function(momentId, mutator, options = {}
     }
 };
 
+window.imApp.deleteMomentPermanently = async function(momentId, options = {}) {
+    if (momentId == null) return false;
+
+    const safeMomentId = String(momentId);
+    let previousMoments = [];
+    let previousMessages = [];
+
+    try {
+        if (window.imApp.ensureDataReady) await window.imApp.ensureDataReady();
+        if (window.imApp.ensureMomentsReady) await window.imApp.ensureMomentsReady();
+        if (window.imApp.ensureMomentMessagesReady) await window.imApp.ensureMomentMessagesReady();
+
+        previousMoments = window.imApp.cloneDataSnapshot(Array.isArray(window.imData.moments) ? window.imData.moments : []);
+        previousMessages = window.imApp.cloneDataSnapshot(Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : []);
+
+        const pendingTimer = window.imApp.saveState.momentTimers.get(safeMomentId);
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            window.imApp.saveState.momentTimers.delete(safeMomentId);
+        }
+
+        const pendingFlush = window.imApp.saveState.momentFlushChains.get(safeMomentId);
+        if (pendingFlush) {
+            await pendingFlush.catch(() => false);
+        }
+
+        window.imData.moments = (Array.isArray(window.imData.moments) ? window.imData.moments : [])
+            .filter(moment => String(moment?.id) !== safeMomentId);
+        window.imData.momentMessages = (Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : [])
+            .filter(msg => String(msg?.momentId) !== safeMomentId);
+
+        window.imApp.saveState.momentDirtyIds.delete(safeMomentId);
+        window.imApp.saveState.momentRevisions.delete(safeMomentId);
+        window.imApp.saveState.momentFlushChains.delete(safeMomentId);
+
+        if (window.imStorage?.deleteMoment) {
+            const deleted = await window.imStorage.deleteMoment(momentId);
+            if (deleted === false) throw new Error('deleteMoment failed');
+        }
+        if (window.imStorage?.saveMoments) {
+            const savedMoments = await window.imStorage.saveMoments(window.imData.moments);
+            if (savedMoments === false) throw new Error('saveMoments failed');
+        } else if (window.imApp.saveMoments) {
+            const saved = await window.imApp.saveMoments({ silent: options.silent !== false });
+            if (!saved) throw new Error('saveMoments failed');
+        }
+
+        if (window.imStorage?.saveMomentMessages) {
+            const savedMessages = await window.imStorage.saveMomentMessages(window.imData.momentMessages);
+            if (savedMessages === false) throw new Error('saveMomentMessages failed');
+            window.imApp.saveState.momentMessagesDirty = false;
+        } else if (window.imApp.saveMomentMessages) {
+            const saved = await window.imApp.saveMomentMessages({ silent: options.silent !== false });
+            if (!saved) throw new Error('saveMomentMessages failed');
+        }
+
+        window.imApp.saveState.lastError = null;
+        window.imApp.saveState.dirty =
+            window.imApp.saveState.friendDirtyIds.size > 0 ||
+            window.imApp.saveState.momentDirtyIds.size > 0 ||
+            window.imApp.saveState.momentMessagesDirty ||
+            window.imApp.saveState.stickersDirty ||
+            window.imApp.saveState.momentsCoverDirty;
+
+        return true;
+    } catch (e) {
+        console.error('Failed to permanently delete moment', e);
+        window.imData.moments = previousMoments;
+        window.imData.momentMessages = previousMessages;
+        window.imApp.saveState.lastError = e;
+
+        try {
+            if (window.imStorage?.saveMoments) {
+                await window.imStorage.saveMoments(previousMoments);
+            }
+            if (window.imStorage?.saveMomentMessages) {
+                await window.imStorage.saveMomentMessages(previousMessages);
+            }
+        } catch (restoreError) {
+            console.error('Failed to restore moment deletion rollback', restoreError);
+        }
+
+        if (!options.silent && window.showToast) {
+            window.showToast('朋友圈删除失败，已恢复');
+        }
+        return false;
+    }
+};
+
 window.imApp.saveFriends = async function(options = {}) {
     return window.imApp.flushGlobalSave(options);
 };
@@ -1798,6 +1977,9 @@ window.imApp.commitStickersChange = async function(mutator, options = {}) {
             if (typeof options.onSuccess === 'function') {
                 options.onSuccess(window.imData.stickers);
             }
+            window.dispatchEvent(new CustomEvent('u2:stickers-data-changed', {
+                detail: { stickers: window.imData.stickers }
+            }));
             return true;
         }
 
@@ -1816,6 +1998,10 @@ window.imApp.commitStickersChange = async function(mutator, options = {}) {
         if (typeof options.onSuccess === 'function') {
             options.onSuccess(window.imData.stickers);
         }
+
+        window.dispatchEvent(new CustomEvent('u2:stickers-data-changed', {
+            detail: { stickers: window.imData.stickers }
+        }));
 
         return true;
     } catch (e) {
@@ -2297,7 +2483,7 @@ window.imApp.formatTime = function(timestamp) {
     return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
-window.imApp.addMomentNotification = async function(type, user, momentId, content = '') {
+window.imApp.addMomentNotification = async function(type, user, momentId, content = '', thought = '') {
     const notif = {
         id: Date.now(),
         type: type,
@@ -2308,6 +2494,7 @@ window.imApp.addMomentNotification = async function(type, user, momentId, conten
         momentImg: null,
         momentText: null,
         content: content,
+        thought: thought,
         time: Date.now(),
         read: false
     };
@@ -2664,7 +2851,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             modalMessage.textContent = options.message || '';
             modalConfirmBtn.textContent = options.confirmText || '确认';
-            modalConfirmBtn.style.color = options.isDestructive ? '#ff3b30' : '#2c2c2e';
+            const isDeleteAction = options.isDestructive && String(options.confirmText || '').trim() === '删除';
+            modalConfirmBtn.style.color = isDeleteAction ? '#fff' : (options.isDestructive ? '#ff3b30' : '#2c2c2e');
+            modalConfirmBtn.style.background = isDeleteAction ? '#111' : '';
+            modalConfirmBtn.style.borderRadius = isDeleteAction ? '12px' : '';
+            modalConfirmBtn.style.fontWeight = isDeleteAction ? '700' : '';
         }
 
         customModalOverlay.style.display = 'flex';
@@ -2736,6 +2927,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render friends to ensure up to date
             if (window.imApp.renderFriendsList) window.imApp.renderFriendsList();
             if (window.imApp.renderGroupsList) window.imApp.renderGroupsList();
+            if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         });
     }
 
@@ -3012,6 +3204,126 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function getStickerBindableFriends() {
+        return (Array.isArray(window.imData.friends) ? window.imData.friends : [])
+            .filter(friend => friend && friend.id != null && friend.type !== 'group' && friend.type !== 'official');
+    }
+
+    function getStickerBoundFriends(categoryName) {
+        return getStickerBindableFriends()
+            .filter(friend => Array.isArray(friend.mountedStickers) && friend.mountedStickers.includes(categoryName));
+    }
+
+    function openStickerBindingDialog(categoryName) {
+        const safeCategoryName = String(categoryName || '').trim();
+        if (!safeCategoryName) return;
+
+        const chars = getStickerBindableFriends();
+        if (chars.length === 0) {
+            if (showToast) showToast('No chars available');
+            return;
+        }
+
+        let overlay = document.getElementById('sticker-bind-role-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'sticker-bind-role-overlay';
+            overlay.style.cssText = 'position:fixed; inset:0; z-index:10020; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.24); padding:18px;';
+            overlay.innerHTML = `
+                <div class="sticker-bind-role-card" style="width:min(100%,360px); max-height:78vh; display:flex; flex-direction:column; background:#fff; border-radius:24px; box-shadow:0 18px 45px rgba(0,0,0,0.18); overflow:hidden;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #f2f2f7;">
+                        <div style="min-width:0;">
+                            <div style="font-size:17px; font-weight:800; color:#111;">Bind Roles</div>
+                            <div class="sticker-bind-role-subtitle" style="font-size:12px; color:#8e8e93; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                        </div>
+                        <button type="button" class="sticker-bind-role-close" style="width:32px; height:32px; border:none; border-radius:50%; background:#f2f2f7; color:#636366; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="sticker-bind-role-list" style="padding:8px; overflow-y:auto;"></div>
+                    <div style="display:flex; gap:8px; padding:12px 14px 14px; border-top:1px solid #f2f2f7;">
+                        <button type="button" class="sticker-bind-role-cancel" style="flex:1; height:42px; border:none; border-radius:16px; background:#f2f2f7; color:#555; font-size:15px; font-weight:700; cursor:pointer;">Cancel</button>
+                        <button type="button" class="sticker-bind-role-save" style="flex:1; height:42px; border:none; border-radius:16px; background:#111; color:#fff; font-size:15px; font-weight:800; cursor:pointer;">Save</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) overlay.style.display = 'none';
+            });
+            overlay.querySelector('.sticker-bind-role-close')?.addEventListener('click', () => {
+                overlay.style.display = 'none';
+            });
+            overlay.querySelector('.sticker-bind-role-cancel')?.addEventListener('click', () => {
+                overlay.style.display = 'none';
+            });
+        }
+
+        const subtitle = overlay.querySelector('.sticker-bind-role-subtitle');
+        const list = overlay.querySelector('.sticker-bind-role-list');
+            const saveBtn = overlay.querySelector('.sticker-bind-role-save');
+        if (subtitle) subtitle.textContent = safeCategoryName;
+        if (!list || !saveBtn) return;
+
+        list.innerHTML = '';
+        chars.forEach(char => {
+            const selected = Array.isArray(char.mountedStickers) && char.mountedStickers.includes(safeCategoryName);
+            const item = document.createElement('label');
+            item.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px; border-radius:16px; cursor:pointer;';
+            item.innerHTML = `
+                <input type="checkbox" data-friend-id="${char.id}" ${selected ? 'checked' : ''} style="width:18px; height:18px; accent-color:#111;">
+                <div style="width:34px; height:34px; border-radius:50%; overflow:hidden; background:#f2f2f7; color:#8e8e93; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    ${char.avatarUrl ? `<img src="${char.avatarUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${String(char.nickname || char.realName || '?').charAt(0)}</span>`}
+                </div>
+                <div style="min-width:0; flex:1; font-size:14px; color:#111; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${char.nickname || char.realName || 'Char'}</div>
+            `;
+            list.appendChild(item);
+        });
+
+        saveBtn.onclick = async () => {
+            const checkedIds = new Set(Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(input => String(input.dataset.friendId)));
+            const touchedIds = chars.map(char => String(char.id));
+            const saved = window.imApp.commitFriendsChange
+                ? await window.imApp.commitFriendsChange(() => {
+                    chars.forEach(char => {
+                        const shouldBind = checkedIds.has(String(char.id));
+                        const mounted = Array.isArray(char.mountedStickers) ? char.mountedStickers : [];
+                        const nextMounted = mounted.filter(name => name !== safeCategoryName);
+                        if (shouldBind) nextMounted.push(safeCategoryName);
+                        char.mountedStickers = Array.from(new Set(nextMounted));
+                    });
+                }, { silent: true, friendIds: touchedIds, metaOnly: true })
+                : false;
+
+            if (!saved) {
+                if (showToast) showToast('Bind failed');
+                return;
+            }
+
+            const activeFriend = window.imData.currentActiveFriend;
+            if (activeFriend && touchedIds.includes(String(activeFriend.id))) {
+                const latestActive = (window.imData.friends || []).find(friend => String(friend.id) === String(activeFriend.id));
+                if (latestActive) window.imData.currentActiveFriend = latestActive;
+            }
+
+            const settingsFriend = window.imData.currentSettingsFriend;
+            if (settingsFriend && touchedIds.includes(String(settingsFriend.id))) {
+                const latestSettings = (window.imData.friends || []).find(friend => String(friend.id) === String(settingsFriend.id));
+                if (latestSettings) window.imData.currentSettingsFriend = latestSettings;
+            }
+
+            overlay.style.display = 'none';
+            renderStickersView(true);
+            window.dispatchEvent(new CustomEvent('u2:stickers-binding-changed', {
+                detail: {
+                    categoryName: safeCategoryName,
+                    boundFriendIds: Array.from(checkedIds)
+                }
+            }));
+            if (showToast) showToast('Bound');
+        };
+
+        overlay.style.display = 'flex';
+    }
+
     // Render stickers view
     function renderStickersView(keepBatchMode) {
         if (!stickersListContainer) return;
@@ -3102,12 +3414,29 @@ document.addEventListener('DOMContentLoaded', () => {
         stickers.forEach((category, catIndex) => {
             const card = document.createElement('div');
             card.className = 'sticker-category-card';
-            card.style.cssText = 'background: #fff; border-radius: 16px; padding: 0 12px; overflow: hidden;';
+            card.style.cssText = 'background: #fff; border: 1px solid #f2f2f7; border-radius: 14px; padding: 0 12px; overflow: hidden; box-shadow: none;';
 
             // Header: title center, collapse arrow right
             const header = document.createElement('div');
             header.className = 'sticker-category-header';
-            header.style.cssText = 'display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; min-height: 38px; padding: 6px 0;';
+            header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; position: relative; min-height: 42px; padding: 7px 0;';
+
+            const leftContainer = document.createElement('div');
+            leftContainer.style.cssText = 'display: flex; align-items: center; gap: 6px; min-width: 90px;';
+
+            const bindBtn = document.createElement('button');
+            bindBtn.type = 'button';
+            bindBtn.className = 'sticker-category-bind';
+            const boundCount = getStickerBoundFriends(category.categoryName).length;
+            bindBtn.innerHTML = `<i class="fas fa-user-plus"></i><span>${boundCount || ''}</span>`;
+            bindBtn.title = 'Bind roles';
+            bindBtn.style.cssText = 'height: 28px; min-width: 44px; border: none; border-radius: 14px; background: #f7f7fa; color: #111; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; font-size: 12px; font-weight: 700; cursor: pointer;';
+            bindBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openStickerBindingDialog(category.categoryName);
+            });
+
+            leftContainer.appendChild(bindBtn);
 
             // Center: title (absolutely positioned for true centering)
             const title = document.createElement('div');
@@ -3122,8 +3451,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Delete category button (only visible when expanded)
             const deleteBtn = document.createElement('div');
             deleteBtn.className = 'sticker-category-delete';
-            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteBtn.style.cssText = 'color: #ff3b30; cursor: pointer; font-size: 14px; padding: 6px 8px; display: none; border-radius: 8px; transition: background 0.2s;';
+            deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+            deleteBtn.style.cssText = 'color: #ff3b30; cursor: pointer; font-size: 13px; width: 28px; height: 28px; padding: 0; display: none; border-radius: 50%; align-items: center; justify-content: center; transition: background 0.2s;';
             deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (confirm(`删除分类 "${category.categoryName}" ?`)) {
@@ -3157,6 +3486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rightContainer.appendChild(deleteBtn);
             rightContainer.appendChild(collapseIcon);
 
+            header.appendChild(leftContainer);
             header.appendChild(title);
             header.appendChild(rightContainer);
 
@@ -3171,18 +3501,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 collapseIcon.querySelector('i').style.transform = 'rotate(-90deg)';
                 deleteBtn.style.display = 'none';
             } else {
-                deleteBtn.style.display = 'block';
+                deleteBtn.style.display = 'flex';
             }
 
             // Toggle collapse on header click
             header.addEventListener('click', (e) => {
                 if (e.target.closest('.sticker-category-delete')) return;
+                if (e.target.closest('.sticker-category-bind')) return;
                 
                 isCollapsed = !isCollapsed;
                 category.collapsed = isCollapsed;
                 grid.style.display = isCollapsed ? 'none' : 'grid';
                 collapseIcon.querySelector('i').style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
-                deleteBtn.style.display = isCollapsed ? 'none' : 'block';
+                deleteBtn.style.display = isCollapsed ? 'none' : 'flex';
             });
 
             category.items.forEach((sticker, stickerIndex) => {
@@ -3316,6 +3647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const memoryEntryDetailClose = document.getElementById('memory-entry-detail-close');
     const momentsContent = document.getElementById('moments-content');
     let currentMemoryFriendId = null;
+    let memoryProgrammaticScrollUntil = 0;
 
     function updateLineNavIndicator(activeItem) {
         if (!activeItem || !lineNavIndicator) return;
@@ -3349,6 +3681,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#39;');
     }
 
+    function centerMemoryFriendItem(friendId, options = {}) {
+        if (!memoryTopFriendsScroll) return;
+        const item = Array.from(memoryTopFriendsScroll.querySelectorAll('.memory-friend-story-item'))
+            .find((candidate) => String(candidate.dataset.friendId) === String(friendId));
+        if (!item) return;
+
+        const maxScrollLeft = Math.max(0, memoryTopFriendsScroll.scrollWidth - memoryTopFriendsScroll.clientWidth);
+        const targetLeft = item.offsetLeft - (memoryTopFriendsScroll.clientWidth / 2) + (item.offsetWidth / 2);
+        const clampedLeft = Math.min(Math.max(targetLeft, 0), maxScrollLeft);
+        memoryProgrammaticScrollUntil = Date.now() + (options.instant ? 120 : 450);
+        memoryTopFriendsScroll.scrollTo({
+            left: clampedLeft,
+            behavior: options.instant ? 'auto' : 'smooth'
+        });
+    }
+
     function setActiveMemoryFriend(friend, options = {}) {
         if (!friend) return;
         currentMemoryFriendId = friend.id;
@@ -3359,16 +3707,22 @@ document.addEventListener('DOMContentLoaded', () => {
             items.forEach(item => {
                 const isActive = String(item.dataset.friendId) === String(friend.id);
                 item.classList.toggle('active', isActive);
-                if (isActive && options.scroll !== false) {
-                    const scrollLeft = item.offsetLeft - memoryTopFriendsScroll.offsetWidth / 2 + item.offsetWidth / 2;
-                    memoryTopFriendsScroll.scrollTo({ left: scrollLeft, behavior: options.instant ? 'auto' : 'smooth' });
-                }
             });
+        }
+
+        if (options.scroll !== false) {
+            const scrollToActive = () => centerMemoryFriendItem(friend.id, options);
+            if (options.defer) {
+                requestAnimationFrame(scrollToActive);
+            } else {
+                scrollToActive();
+            }
         }
     }
 
     function updateActiveMemoryFriendFromScroll() {
         if (!memoryTopFriendsScroll) return;
+        if (Date.now() < memoryProgrammaticScrollUntil) return;
         const items = memoryTopFriendsScroll.querySelectorAll('.memory-friend-story-item');
         if (items.length === 0) return;
 
@@ -3432,7 +3786,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             item.appendChild(avatarWrapper);
             item.appendChild(nameEl);
-            item.addEventListener('click', () => setActiveMemoryFriend(friend));
+            item.addEventListener('click', () => setActiveMemoryFriend(friend, { defer: true }));
             memoryTopFriendsScroll.appendChild(item);
         });
 
@@ -3858,6 +4212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             navChatsBtn.classList.add('active');
             updateLineNavIndicator(navChatsBtn);
+            if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         });
     }
 
@@ -3872,6 +4227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(imBottomNavContainer) imBottomNavContainer.style.display = 'flex';
             navMemoryBtn.classList.add('active');
             updateLineNavIndicator(navMemoryBtn);
+            if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         });
     }
 
@@ -3890,6 +4246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             navMomentsBtn.classList.add('active');
             updateLineNavIndicator(navMomentsBtn);
+            if (window.imApp.updateChatsUnreadBadges) window.imApp.updateChatsUnreadBadges();
         });
     }
 

@@ -27,6 +27,9 @@ async function openChatTab(friend) {
 
         window.imData.currentActiveFriend = activeFriend;
         friend = activeFriend;
+        if (window.imApp.clearFriendUnread) {
+            await window.imApp.clearFriendUnread(friend.id, { silent: true });
+        }
         let pageId = `chat-interface-${friend.id}`;
         let page = document.getElementById(pageId);
         const isGroupChat = friend.type === 'group';
@@ -863,7 +866,7 @@ function showContextMenu(row, e) {
         window.imData.currentActiveRow = row;
         row.classList.add('message-active');
         
-        const bubble = row.querySelector('.chat-bubble');
+        const bubble = row.querySelector('.chat-bubble') || row.querySelector('.sticker-message-wrap');
         if (!bubble) return;
         
         const screenEl = document.getElementById('app') || document.body;

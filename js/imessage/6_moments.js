@@ -34,6 +34,117 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : [];
     }
 
+    function getMomentMessageAuthor(msg) {
+        const friend = (window.imData.friends || []).find((item) => {
+            if (!item || !msg) return false;
+            return String(item.id) === String(msg.userId);
+        });
+
+        return {
+            name: friend?.nickname || friend?.realName || msg?.userName || 'Friend',
+            avatar: friend?.avatarUrl || msg?.userAvatar || null
+        };
+    }
+
+    async function saveMomentMessagesNow() {
+        if (window.imApp.saveMomentMessages) {
+            return window.imApp.saveMomentMessages({ silent: true });
+        }
+        return false;
+    }
+
+    function findMomentMessageIndex(targetMsg) {
+        const messages = Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : [];
+        const directIndex = messages.indexOf(targetMsg);
+        if (directIndex > -1) return directIndex;
+
+        if (targetMsg?.id != null) {
+            const idIndex = messages.findIndex((msg) => msg && String(msg.id) === String(targetMsg.id));
+            if (idIndex > -1) return idIndex;
+        }
+
+        return messages.findIndex((msg) => {
+            if (!msg || !targetMsg) return false;
+            return String(msg.type || '') === String(targetMsg.type || '') &&
+                String(msg.userId || '') === String(targetMsg.userId || '') &&
+                String(msg.momentId || '') === String(targetMsg.momentId || '') &&
+                String(msg.time || '') === String(targetMsg.time || '') &&
+                String(msg.content || '') === String(targetMsg.content || '');
+        });
+    }
+
+    async function deleteMomentMessage(targetMsg) {
+        if (!Array.isArray(window.imData.momentMessages)) return false;
+
+        const previousMessages = cloneSnapshot(window.imData.momentMessages);
+        const index = findMomentMessageIndex(targetMsg);
+        if (index < 0) return false;
+
+        window.imData.momentMessages.splice(index, 1);
+        const saved = await saveMomentMessagesNow();
+        if (!saved) {
+            window.imData.momentMessages = previousMessages;
+            return false;
+        }
+        return true;
+    }
+
+    async function deleteMomentPermanently(momentId) {
+        if (window.imApp?.deleteMomentPermanently) {
+            return window.imApp.deleteMomentPermanently(momentId, { silent: true });
+        }
+
+        await ensureMomentsModuleDataReady();
+        await ensureMomentMessagesModuleDataReady();
+
+        const safeMomentId = String(momentId);
+        const previousMoments = cloneSnapshot(Array.isArray(window.imData.moments) ? window.imData.moments : []);
+        const previousMessages = cloneSnapshot(Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : []);
+
+        try {
+            window.imData.moments = (Array.isArray(window.imData.moments) ? window.imData.moments : [])
+                .filter((moment) => String(moment?.id) !== safeMomentId);
+            window.imData.momentMessages = (Array.isArray(window.imData.momentMessages) ? window.imData.momentMessages : [])
+                .filter((msg) => String(msg?.momentId) !== safeMomentId);
+
+            if (window.imStorage?.deleteMoment) {
+                const deleted = await window.imStorage.deleteMoment(momentId);
+                if (deleted === false) throw new Error('deleteMoment failed');
+            }
+
+            if (window.imStorage?.saveMoments) {
+                const savedMoments = await window.imStorage.saveMoments(window.imData.moments);
+                if (savedMoments === false) throw new Error('saveMoments failed');
+            } else {
+                const savedMoment = window.imApp.saveMoments
+                    ? await window.imApp.saveMoments({ silent: true })
+                    : false;
+                if (!savedMoment) throw new Error('saveMoments failed');
+            }
+
+            if (window.imStorage?.saveMomentMessages) {
+                const savedMessages = await window.imStorage.saveMomentMessages(window.imData.momentMessages);
+                if (savedMessages === false) throw new Error('saveMomentMessages failed');
+            } else {
+                const savedMessages = await saveMomentMessagesNow();
+                if (!savedMessages) throw new Error('saveMomentMessages failed');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Fallback permanent moment delete failed:', error);
+            window.imData.moments = previousMoments;
+            window.imData.momentMessages = previousMessages;
+            try {
+                if (window.imStorage?.saveMoments) await window.imStorage.saveMoments(previousMoments);
+                if (window.imStorage?.saveMomentMessages) await window.imStorage.saveMomentMessages(previousMessages);
+            } catch (restoreError) {
+                console.error('Fallback moment delete rollback failed:', restoreError);
+            }
+            return false;
+        }
+    }
+
     function cloneSnapshot(value) {
         if (typeof structuredClone === 'function') {
             return structuredClone(value);
@@ -91,7 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function findMomentById(momentId) {
-        return window.imData.moments.find((m) => m && m.id === momentId) || null;
+        return window.imData.moments.find((m) => m && String(m.id) === String(momentId)) || null;
     }
 
     function refreshViewsForMomentUser(moment) {
@@ -101,6 +212,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (viewingUserId === moment.userId || (viewingUserId === 'me' && moment.userId === 'me')) {
                 openUserMoments(viewingUserId);
             }
+        }
+    }
+
+    function refreshViewsAfterMomentComment(momentId) {
+        const latestMoment = findMomentById(momentId);
+        refreshViewsForMomentUser(latestMoment);
+        if (
+            latestMoment &&
+            momentDetailOverlay &&
+            momentDetailOverlay.classList.contains('active') &&
+            currentDetailMoment &&
+            String(currentDetailMoment.id) === String(momentId)
+        ) {
+            openMomentDetail(latestMoment);
         }
     }
 
@@ -240,15 +365,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pinnedTag) pinnedTag.style.display = m.isPinned ? 'inline-block' : 'none';
         if (pinActionText) pinActionText.textContent = m.isPinned ? '取消置顶' : '置顶';
 
+        // Dynamically fetch the latest avatar and name based on userId
+        let currentAvatar = m.avatar;
+        let currentName = m.name;
+        if (m.userId === 'me' || m.userId === 'self') {
+            if (window.userState) {
+                currentAvatar = window.userState.avatarUrl;
+                currentName = window.userState.name;
+            }
+        } else {
+            const friend = window.imData.friends ? window.imData.friends.find(f => f.id == m.userId || f.id === m.userId) : null;
+            if (friend) {
+                currentAvatar = friend.avatarUrl;
+                currentName = friend.nickname || friend.realName || currentName;
+            }
+        }
+
         if (avatarEl) {
-            if (m.avatar) {
-                avatarEl.innerHTML = `<img src="${m.avatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            if (currentAvatar) {
+                avatarEl.innerHTML = `<img src="${currentAvatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
             } else {
                 avatarEl.innerHTML = `<i class="fas fa-user"></i>`;
             }
         }
 
-        if (nameEl) nameEl.textContent = m.name || '';
+        if (nameEl) nameEl.textContent = currentName || '';
 
         const imagesEl = document.getElementById('moment-detail-images');
         const interactionEl = document.getElementById('moment-detail-interaction');
@@ -276,7 +417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 m.images.forEach((img) => {
                     const src = typeof img === 'object' ? img.src : img;
-                    imagesEl.innerHTML += `<div class="moment-detail-img-wrapper" style="width:100%; height:100%; overflow:hidden;"><img src="${src}" style="width:100%; height:100%; object-fit:cover;"></div>`;
+                    imagesEl.innerHTML += `<div class="moment-detail-img-wrapper" style="width:100%; height:100%; overflow:hidden;"><img src="${src}" onerror="this.style.display='none'; this.parentElement.style.background='#ffebee'; this.parentElement.innerHTML='<div style=\\'font-size:10px;color:#ff3b30;padding:5px;text-align:center;height:100%;display:flex;justify-content:center;align-items:center;\\'>过期</div>';" style="width:100%; height:100%; object-fit:cover;"></div>`;
                 });
                 imagesEl.style.display = 'grid';
             } else {
@@ -284,8 +425,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        const normalizedComments = normalizeMomentComments(m.comments);
         const hasLikes = m.likes && m.likes.length > 0;
-        const hasComments = m.comments && m.comments.length > 0;
+        const hasComments = normalizedComments.length > 0;
 
         if (interactionEl) {
             if (!hasLikes && !hasComments) {
@@ -305,8 +447,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (commentsListEl) {
                     commentsListEl.innerHTML = '';
                     if (hasComments) {
-                        m.comments.forEach((c) => {
-                            commentsListEl.innerHTML += `<div class="moment-detail-comment" style="font-size: 15px; margin-bottom: 4px; line-height: 1.4;"><span class="moment-detail-comment-name">${c.name}: </span>${c.content}</div>`;
+                        normalizedComments.forEach((c) => {
+                            commentsListEl.innerHTML += renderMomentCommentHtml(c, 'moment-detail-comment');
+                        });
+                        commentsListEl.querySelectorAll('.moment-detail-comment').forEach((commentEl) => {
+                            commentEl.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                openMomentCommentReply(m.id, commentEl.dataset.commentIndex);
+                            });
                         });
                         if (hasLikes) {
                             commentsListEl.style.borderTop = '1px solid #e5e5ea';
@@ -333,7 +481,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         friendsListEl.innerHTML = '';
 
         if (window.imData.friends && window.imData.friends.length > 0) {
-            window.imData.friends.forEach((friend) => {
+            const shareableFriends = window.imData.friends.filter(f => f && f.type !== 'official' && f.type !== 'group');
+            shareableFriends.forEach((friend) => {
                 const item = document.createElement('div');
                 item.className = 'moment-share-friend-item';
 
@@ -385,6 +534,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 friendsListEl.appendChild(item);
             });
+            if (shareableFriends.length === 0) {
+                friendsListEl.innerHTML = '<div style="font-size: 13px; color: #8e8e93; text-align: center; width: 100%;">暂无联系人</div>';
+            }
         } else {
             friendsListEl.innerHTML = '<div style="font-size: 13px; color: #8e8e93; text-align: center; width: 100%;">暂无联系人</div>';
         }
@@ -459,15 +611,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         confirmText: '删除',
                         onConfirm: async () => {
                             const targetMomentId = currentDetailMoment.id;
-                            const nextMoments = window.imData.moments.filter((m) => m.id !== targetMomentId);
-                            const saved = await commitMomentsChange(targetMomentId, () => {
-                                window.imData.moments = nextMoments;
-                            });
+                            const saved = await deleteMomentPermanently(targetMomentId);
                             if (!saved) return;
 
                             closeMomentDetail();
                             refreshAllMomentsViews();
-                            showToast('已删除');
+                            if (window.showToast) window.showToast('已删除');
                         }
                     });
                 }
@@ -711,6 +860,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const publishMomentAiAllFriends = document.getElementById('publish-moment-ai-all-friends');
+    if (publishMomentAiAllFriends) {
+        publishMomentAiAllFriends.addEventListener('click', async () => {
+            if (publishMomentView) {
+                publishMomentView.classList.remove('active');
+                publishMomentView.style.display = 'none';
+            }
+            
+            const allFriends = Array.isArray(window.imData?.friends) ? window.imData.friends : [];
+            const eligibleChars = allFriends.filter(f => f && f.type !== 'official' && f.type !== 'group');
+            
+            if (eligibleChars.length === 0) {
+                if (window.showToast) window.showToast('没有好友想发朋友圈');
+                return;
+            }
+            
+            if (window.showToast) window.showToast(` ${eligibleChars.length} 位好友正在发朋友圈...`);
+            
+            // Generate moments sequentially to avoid rate limits
+            for (const friend of eligibleChars) {
+                try {
+                    await triggerAiMomentPost(friend, true); // true indicates batch mode to suppress individual toasts
+                } catch (e) {
+                    console.error(`Failed to generate moment for ${friend.nickname}:`, e);
+                }
+            }
+            
+            if (window.showToast) window.showToast('所有好友已发送完毕！');
+        });
+    }
+
     // --- Unified Refresh Function (Task 5: Real-time updates) ---
     function refreshAllMomentsViews() {
         // Re-render main moments feed
@@ -722,6 +902,389 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    function normalizeMomentComments(comments) {
+        if (!Array.isArray(comments)) return [];
+
+        return comments.reduce((normalized, comment, index) => {
+            if (comment == null) return normalized;
+
+            if (typeof comment === 'string') {
+                const content = comment.trim();
+                if (content) normalized.push({ name: 'Unknown', content, index });
+                return normalized;
+            }
+
+            if (typeof comment !== 'object') return normalized;
+
+            const rawName = comment.name ?? comment.userName ?? comment.nickname ?? comment.realName ?? 'Unknown';
+            const rawContent = comment.content ?? comment.text ?? comment.comment ?? '';
+            const name = String(rawName || 'Unknown').trim() || 'Unknown';
+            const content = String(rawContent || '').trim();
+
+            if (content) {
+                normalized.push({
+                    ...comment,
+                    name,
+                    content,
+                    userId: comment.userId ?? comment.friendId ?? comment.charId ?? null,
+                    replyToName: comment.replyToName ?? comment.replyToUserName ?? null,
+                    replyToContent: comment.replyToContent ?? null,
+                    thought: comment.thought ?? '',
+                    index
+                });
+            }
+            return normalized;
+        }, []);
+    }
+
+    function escapeMomentHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderMomentCommentHtml(comment, className) {
+        const replyPrefix = comment.replyToName
+            ? ` <span style="color:#576b95;">回复 ${escapeMomentHtml(comment.replyToName)}</span>`
+            : '';
+        return `<div class="${className}" data-comment-index="${comment.index}" style="font-size:15px; margin-bottom:4px; line-height:1.4; cursor:pointer;"><span class="${className}-name">${escapeMomentHtml(comment.name)}${replyPrefix}: </span>${escapeMomentHtml(comment.content)}</div>`;
+    }
+
+    function findFriendForMomentComment(comment) {
+        if (!comment) return null;
+        const friends = Array.isArray(window.imData.friends) ? window.imData.friends : [];
+        if (comment.userId != null) {
+            const byId = friends.find((friend) => String(friend.id) === String(comment.userId));
+            if (byId) return byId;
+        }
+
+        const commentName = String(comment.name || '').trim();
+        if (!commentName) return null;
+        return friends.find((friend) => {
+            if (!friend || friend.type === 'group' || friend.type === 'official') return false;
+            return String(friend.nickname || '').trim() === commentName ||
+                String(friend.realName || '').trim() === commentName;
+        }) || null;
+    }
+
+    function isUserMomentComment(comment) {
+        const userName = window.userState?.name || 'Me';
+        return String(comment?.userId || '') === 'me' ||
+            String(comment?.userId || '') === 'self' ||
+            String(comment?.name || '') === String(userName);
+    }
+
+    function parseAutoMomentResponse(aiResponse) {
+        const result = { thought: '', comment: '', chatReplies: [] };
+        if (!aiResponse || typeof aiResponse !== 'string') return result;
+
+        const fallbackLines = [];
+        aiResponse.split('\n').forEach((line) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+
+            const thoughtMatch = trimmedLine.match(/^\[Thought:\s*(.*?)\]\s*$/i);
+            const commentMatch = trimmedLine.match(/^\[Comment:\s*(.*?)\]\s*$/i);
+            const chatMatch = trimmedLine.match(/^\[Chat:\s*(.*?)\]\s*$/i);
+
+            if (thoughtMatch) {
+                result.thought = thoughtMatch[1].trim();
+            } else if (commentMatch) {
+                result.comment = commentMatch[1].trim();
+            } else if (chatMatch) {
+                const reply = chatMatch[1].trim();
+                if (reply) result.chatReplies.push(reply);
+            } else if (!trimmedLine.match(/^\[Like:\s*.*?\]/i)) {
+                fallbackLines.push(trimmedLine);
+            }
+        });
+
+        if (!result.comment && fallbackLines.length > 0) {
+            result.comment = fallbackLines.shift().trim();
+        }
+
+        return result;
+    }
+
+    function parseMomentCommentReplyResponse(aiResponse) {
+        const result = { thought: '', comments: [] };
+        if (!aiResponse || typeof aiResponse !== 'string') return result;
+
+        const fallbackLines = [];
+        aiResponse.split('\n').forEach((line) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+
+            const thoughtMatch = trimmedLine.match(/^\[Thought:\s*(.*?)\]\s*$/i);
+            const commentMatch = trimmedLine.match(/^\[Comment:\s*(.*?)\]\s*$/i);
+            if (thoughtMatch) {
+                result.thought = thoughtMatch[1].trim();
+            } else if (commentMatch) {
+                const comment = commentMatch[1].trim();
+                if (comment) result.comments.push(comment);
+            } else if (!trimmedLine.match(/^\[(Chat|Like):\s*.*?\]/i)) {
+                fallbackLines.push(trimmedLine);
+            }
+        });
+
+        if (result.comments.length === 0 && fallbackLines.length > 0) {
+            result.comments = fallbackLines.slice(0, 3).map((line) => line.trim()).filter(Boolean);
+        }
+
+        result.comments = result.comments.slice(0, 3);
+        return result;
+    }
+
+    async function generateMomentCommentReply(moment, friend, targetComment, userReply) {
+        if (!moment || !friend || !apiConfig.endpoint || !apiConfig.apiKey) return null;
+
+        const systemDepthWorldBookContext = window.getGlobalWorldBookContextByPosition
+            ? window.getGlobalWorldBookContextByPosition('system_depth')
+            : '';
+        const beforeRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
+            ? window.getGlobalWorldBookContextByPosition('before_role')
+            : '';
+        const afterRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
+            ? window.getGlobalWorldBookContextByPosition('after_role')
+            : '';
+
+        if (window.imApp?.ensureFriendMessagesLoaded) {
+            await window.imApp.ensureFriendMessagesLoaded(friend.id);
+        }
+
+        const contextFriend = (window.imData.friends || []).find((item) => String(item.id) === String(friend.id)) || friend;
+        const contextMessages = window.imApp.buildApiContextMessages
+            ? window.imApp.buildApiContextMessages(contextFriend, {
+                userName: window.userState?.name || 'User'
+            })
+            : [];
+        const imageDescriptions = getMomentImageDescriptions(moment);
+
+        const systemPrompt = `${systemDepthWorldBookContext ? `System Depth Rules (Highest Priority):\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `Before Role Rules:\n${beforeRoleWorldBookContext}\n\n` : ''}You are roleplaying ${friend.realName || friend.nickname}.
+Role persona: ${friend.persona || 'ordinary user'}.
+User (${window.userState?.name || 'User'}) persona: ${window.userState?.persona || 'ordinary user'}.
+${afterRoleWorldBookContext ? `\nAfter Role Rules:\n${afterRoleWorldBookContext}\n` : ''}
+
+The user replied to this character's public moment comment. Generate this character's private thought and 1 to 3 public reply comments.
+Use the attached worldbook/persona/chat context, current relationship, the original moment, the character's original comment, and the user's reply.
+Output only tagged lines:
+[Thought: about 30 Chinese characters, acceptable 20-45 characters]
+[Comment: public reply comment 1]
+[Comment: public reply comment 2 if needed]
+[Comment: public reply comment 3 if needed]
+Do not output private chat messages, [Chat], [Like], JSON, explanations, or chain-of-thought.`;
+
+        const userPromptParts = [
+            `Moment author: ${moment.name || moment.userName || 'User'}`,
+            `Moment text:\n${moment.text || '(no text)'}`,
+            imageDescriptions ? `Image descriptions:\n${imageDescriptions}` : '',
+            `Original character comment by ${targetComment.name}:\n${targetComment.content}`,
+            `User reply:\n${userReply}`
+        ].filter(Boolean);
+
+        const messages = [{ role: 'system', content: systemPrompt }];
+        if (Array.isArray(contextMessages) && contextMessages.length > 0) {
+            messages.push(...contextMessages);
+        }
+        messages.push({ role: 'user', content: userPromptParts.join('\n\n') });
+
+        const aiResponse = await requestMomentApiCompletion(messages, 0.8);
+        return parseMomentCommentReplyResponse(aiResponse);
+    }
+
+    function openMomentCommentReply(momentId, commentIndex) {
+        const moment = findMomentById(momentId);
+        const comments = normalizeMomentComments(moment?.comments);
+        const targetComment = comments.find((comment) => String(comment.index) === String(commentIndex));
+        if (!moment || !targetComment) return;
+        if (isUserMomentComment(targetComment)) return;
+
+        const friend = findFriendForMomentComment(targetComment);
+        if (!friend) {
+            if (window.showToast) window.showToast('找不到这条评论对应的角色');
+            return;
+        }
+
+        if (!window.showCustomModal) return;
+        window.showCustomModal({
+            type: 'prompt',
+            title: `回复 ${friend.nickname || friend.realName || targetComment.name}`,
+            placeholder: '回复评论...',
+            confirmText: '发送',
+            onConfirm: async (text) => {
+                const replyText = String(text || '').trim();
+                if (!replyText) return;
+
+                const userComment = {
+                    name: window.userState?.name || 'Me',
+                    userId: 'me',
+                    content: replyText,
+                    replyToName: targetComment.name,
+                    replyToContent: targetComment.content
+                };
+
+                const userSaved = await commitMomentsChange(momentId, () => {
+                    const latestMoment = findMomentById(momentId);
+                    if (!latestMoment) return;
+                    if (!Array.isArray(latestMoment.comments)) latestMoment.comments = [];
+                    latestMoment.comments.push(userComment);
+                });
+                if (!userSaved) return;
+
+                refreshViewsForMomentUser(findMomentById(momentId));
+
+                try {
+                    const latestMoment = findMomentById(momentId);
+                    const parsed = await generateMomentCommentReply(latestMoment, friend, targetComment, replyText);
+                    const generatedComments = parsed?.comments || [];
+                    if (generatedComments.length === 0) return;
+
+                    const thought = parsed.thought || '';
+                    const displayName = friend.nickname || friend.realName || targetComment.name || 'Friend';
+                    const saved = await commitMomentsChange(momentId, () => {
+                        const currentMoment = findMomentById(momentId);
+                        if (!currentMoment) return;
+                        if (!Array.isArray(currentMoment.comments)) currentMoment.comments = [];
+                        generatedComments.forEach((content) => {
+                            currentMoment.comments.push({
+                                name: displayName,
+                                userId: friend.id,
+                                content,
+                                replyToName: userComment.name,
+                                replyToContent: userComment.content,
+                                thought
+                            });
+                        });
+                    });
+                    if (!saved) return;
+
+                    if (window.imApp.addMomentNotification) {
+                        for (const content of generatedComments) {
+                            await window.imApp.addMomentNotification('comment', friend, momentId, content, thought);
+                        }
+                    }
+                    refreshViewsForMomentUser(findMomentById(momentId));
+                } catch (error) {
+                    console.error('Moment comment reply generation failed:', error);
+                    if (window.showToast) window.showToast('回复生成失败');
+                }
+            }
+        });
+    }
+
+    function showMomentThoughtSheet(msg) {
+        if (!msg || !msg.thought) {
+            if (window.showToast) window.showToast('当时TA没有留下特别的心声...');
+            return;
+        }
+
+        let sheet = document.getElementById('moment-thought-sheet');
+        if (!sheet) {
+            sheet = document.createElement('div');
+            sheet.id = 'moment-thought-sheet';
+            sheet.style.cssText = 'position: fixed; inset: 0; z-index: 10000; display: none; align-items: flex-end; justify-content: center;';
+            sheet.innerHTML = `
+                <div class="moment-thought-overlay" style="position:absolute; inset:0; background:rgba(0,0,0,0.35); opacity:0; transition:opacity 0.25s;"></div>
+                <div class="moment-thought-panel" style="position:relative; width:100%; max-width:480px; background:#fff; border-radius:22px 22px 0 0; padding:14px 18px 24px; transform:translateY(100%); transition:transform 0.28s cubic-bezier(0.2,0.8,0.2,1); box-shadow:0 -8px 24px rgba(0,0,0,0.16);">
+                    <div style="width:40px; height:4px; border-radius:999px; background:#d1d1d6; margin:0 auto 16px;"></div>
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                        <div class="moment-thought-avatar" style="width:46px; height:46px; border-radius:10px; overflow:hidden; background:#e5e5ea; display:flex; align-items:center; justify-content:center; color:#8e8e93; flex-shrink:0;"></div>
+                        <div style="min-width:0; flex:1;">
+                            <div class="moment-thought-name" style="font-size:17px; font-weight:700; color:#111; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;"></div>
+                            <div class="moment-thought-type" style="font-size:13px; color:#8e8e93; margin-top:2px;"></div>
+                        </div>
+                        <button class="moment-thought-close" type="button" style="width:32px; height:32px; border:0; border-radius:50%; background:#f2f2f7; color:#555; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="moment-thought-content" style="font-size:16px; line-height:1.65; color:#1c1c1e; background:#f7f7fa; border-radius:14px; padding:14px 16px; white-space:pre-wrap;"></div>
+                </div>
+            `;
+            document.body.appendChild(sheet);
+
+            const closeSheet = () => {
+                const overlay = sheet.querySelector('.moment-thought-overlay');
+                const panel = sheet.querySelector('.moment-thought-panel');
+                if (overlay) overlay.style.opacity = '0';
+                if (panel) panel.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    sheet.style.display = 'none';
+                }, 260);
+            };
+
+            sheet.querySelector('.moment-thought-overlay')?.addEventListener('click', closeSheet);
+            sheet.querySelector('.moment-thought-close')?.addEventListener('click', closeSheet);
+        }
+
+        const avatarEl = sheet.querySelector('.moment-thought-avatar');
+        const nameEl = sheet.querySelector('.moment-thought-name');
+        const typeEl = sheet.querySelector('.moment-thought-type');
+        const contentEl = sheet.querySelector('.moment-thought-content');
+        const overlay = sheet.querySelector('.moment-thought-overlay');
+        const panel = sheet.querySelector('.moment-thought-panel');
+        const author = getMomentMessageAuthor(msg);
+
+        if (avatarEl) {
+            avatarEl.innerHTML = author.avatar
+                ? `<img src="${author.avatar}" style="width:100%; height:100%; object-fit:cover;">`
+                : '<i class="fas fa-user"></i>';
+        }
+        if (nameEl) nameEl.textContent = author.name;
+        if (typeEl) typeEl.textContent = msg.type === 'like' ? 'Moment like thought' : 'Moment comment thought';
+        if (contentEl) contentEl.textContent = msg.thought || '';
+
+        sheet.style.display = 'flex';
+        void sheet.offsetWidth;
+        if (overlay) overlay.style.opacity = '1';
+        if (panel) panel.style.transform = 'translateY(0)';
+    }
+
+    async function appendAutoMomentChatReplies(friend, replies) {
+        if (!friend || !Array.isArray(replies) || replies.length === 0) return;
+
+        const cleanReplies = replies
+            .map((reply) => String(reply || '').trim())
+            .filter(Boolean)
+            .slice(0, 3);
+        if (cleanReplies.length === 0) return;
+
+        if (window.imApp?.ensureFriendMessagesLoaded) {
+            await window.imApp.ensureFriendMessagesLoaded(friend.id);
+        }
+
+        const liveFriend = (window.imData.friends || []).find((item) => String(item.id) === String(friend.id)) || friend;
+        const baseTime = Date.now();
+
+        for (let index = 0; index < cleanReplies.length; index += 1) {
+            const msgObj = {
+                id: window.imChat?.createMessageId ? window.imChat.createMessageId('msg') : `auto-moment-${baseTime}-${index}`,
+                role: 'assistant',
+                content: cleanReplies[index],
+                timestamp: baseTime + index
+            };
+
+            if (window.imApp.appendFriendMessage) {
+                await window.imApp.appendFriendMessage(liveFriend.id || friend.id, msgObj, { silent: true });
+            } else {
+                await commitFriendsChange(liveFriend.id || friend.id, (targetFriend) => {
+                    if (!targetFriend) return;
+                    if (!Array.isArray(targetFriend.messages)) targetFriend.messages = [];
+                    targetFriend.messages.push(msgObj);
+                }, { silent: true });
+            }
+        }
+
+        const page = document.getElementById(`chat-interface-${liveFriend.id || friend.id}`);
+        const container = page && page.style.display !== 'none'
+            ? page.querySelector('.ins-chat-messages')
+            : null;
+        if (container && window.imChat?.rerenderChatContainer) {
+            const latestFriend = (window.imData.friends || []).find((item) => String(item.id) === String(liveFriend.id || friend.id)) || liveFriend;
+            window.imChat.rerenderChatContainer(latestFriend, container, { scroll: true });
+        }
+    }
+
     // --- Rendering Feed Elements ---
     function createMomentElement(m) {
         const item = document.createElement('div');
@@ -729,8 +1292,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const momentId = m.id;
 
-        let avatarHtml = m.avatar
-            ? `<img src="${m.avatar}">`
+        // Dynamically fetch the latest avatar based on userId
+        let currentAvatar = m.avatar;
+        let currentName = m.name;
+        if (m.userId === 'me' || m.userId === 'self') {
+            if (window.userState) {
+                currentAvatar = window.userState.avatarUrl;
+                currentName = window.userState.name;
+            }
+        } else {
+            const friend = window.imData.friends ? window.imData.friends.find(f => f.id == m.userId || f.id === m.userId) : null;
+            if (friend) {
+                currentAvatar = friend.avatarUrl;
+                currentName = friend.nickname || friend.realName || currentName;
+            }
+        }
+
+        let avatarHtml = currentAvatar
+            ? `<img src="${currentAvatar}">`
             : `<i class="fas fa-user"></i>`;
 
         let imagesHtml = '';
@@ -741,14 +1320,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const imgDivs = m.images.map((img) => {
                 const src = typeof img === 'object' ? img.src : img;
-                return `<div class="moment-img-wrapper"><img src="${src}" style="width:100%; height:100%; object-fit:cover;"></div>`;
+                return `<div class="moment-img-wrapper"><img src="${src}" onerror="this.style.display='none'; this.parentElement.style.background='#ffebee'; this.parentElement.innerHTML='<div style=\\'font-size:10px;color:#ff3b30;padding:5px;text-align:center;\\'>过期</div>';" style="width:100%; height:100%; object-fit:cover;"></div>`;
             }).join('');
             imagesHtml = `<div class="moment-images ${layoutClass}">${imgDivs}</div>`;
         }
 
         let interactionHtml = '';
+        const normalizedComments = normalizeMomentComments(m.comments);
         const hasLikes = m.likes && m.likes.length > 0;
-        const hasComments = m.comments && m.comments.length > 0;
+        const hasComments = normalizedComments.length > 0;
 
         if (hasLikes || hasComments) {
             let likesHtml = '';
@@ -758,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             let commentsHtml = '';
             if (hasComments) {
-                commentsHtml = m.comments.map((c) => `<div class="moment-comment"><span class="moment-comment-name">${c.name}: </span>${c.content}</div>`).join('');
+                commentsHtml = normalizedComments.map((c) => renderMomentCommentHtml(c, 'moment-comment')).join('');
             }
 
             interactionHtml = `
@@ -779,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         item.innerHTML = `
             <div class="moment-avatar" style="cursor: pointer;">${avatarHtml}</div>
             <div class="moment-main">
-                <div class="moment-name">${m.name}</div>
+                <div class="moment-name">${currentName}</div>
                 <div class="moment-text">${m.text}</div>
                 ${imagesHtml}
                 <div class="moment-footer">
@@ -789,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="moment-action-item like-btn"><i class="far fa-heart"></i> ${likeText}</div>
                         <div class="moment-action-item comment-btn"><i class="far fa-comment"></i> 评论</div>
                         <div class="moment-action-item forward-btn"><i class="fas fa-share"></i> 转发</div>
-                        <div class="moment-action-item delete-btn" style="color: #ff3b30;"><i class="fas fa-trash"></i> 删除</div>
+                        <div class="moment-action-item delete-btn"><i class="fas fa-trash"></i> 删除</div>
                     </div>
                 </div>
                 ${interactionHtml}
@@ -799,6 +1379,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         item.addEventListener('click', (e) => {
             // Prevent clicking the moment item from opening chat if we clicked a button
             if (e.target.closest('.moment-action-btn') || e.target.closest('.moment-action-menu')) return;
+        });
+
+        item.querySelectorAll('.moment-comment').forEach((commentEl) => {
+            commentEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openMomentCommentReply(momentId, commentEl.dataset.commentIndex);
+            });
         });
 
         const avatarEl = item.querySelector('.moment-avatar');
@@ -857,6 +1444,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         const newComment = {
                             name: window.userState ? window.userState.name : 'Me',
+                            userId: 'me',
                             content: text.trim()
                         };
 
@@ -887,10 +1475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     confirmText: '删除',
                     onConfirm: async () => {
                         const targetMomentId = momentId;
-                        const nextMoments = window.imData.moments.filter((m) => m.id !== targetMomentId);
-                        const saved = await commitMomentsChange(targetMomentId, () => {
-                            window.imData.moments = nextMoments;
-                        });
+                        const saved = await deleteMomentPermanently(targetMomentId);
                         if (!saved) return;
 
                         refreshAllMomentsViews();
@@ -1061,54 +1646,87 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const currentMomentMessages = getMomentMessages();
         if (currentMomentMessages.length === 0) {
-            list.innerHTML = '<div style="text-align: center; color: #999; padding-top: 50px; font-size: 14px;"><i class="fas fa-bell" style="font-size: 40px; color: #ccc; margin-bottom: 15px; display: block;"></i>暂无新消息</div>';
+            list.innerHTML = `
+                <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:#8e8e93;">
+                    <i class="far fa-comment-dots" style="font-size:50px; margin-bottom:20px; color:#e5e5ea;"></i>
+                    <div style="font-size:16px;">暂无新消息</div>
+                </div>`;
             return;
         }
+
+        const msgListContainer = document.createElement('div');
+        msgListContainer.style.cssText = 'flex:1; overflow-y:auto; padding-bottom:16px;';
 
         currentMomentMessages.forEach((msg) => {
             const item = document.createElement('div');
             item.className = 'moment-message-item';
-            item.style.display = 'flex';
-            item.style.padding = '12px 16px';
-            item.style.borderBottom = '1px solid #f2f2f7';
-            item.style.gap = '12px';
+            item.style.cssText = 'display:flex; padding:15px; border-bottom:1px solid #f2f2f2; gap:12px; cursor:pointer; transition:background-color 0.2s;';
 
-            const avatarHtml = msg.userAvatar
-                ? `<img src="${msg.userAvatar}" style="width: 44px; height: 44px; border-radius: 4px; object-fit: cover;">`
-                : `<div style="width: 44px; height: 44px; border-radius: 4px; background: #e5e5ea;"></div>`;
+            item.addEventListener('mousedown', () => item.style.backgroundColor = '#f2f2f7');
+            item.addEventListener('mouseup', () => item.style.backgroundColor = '#fff');
+            item.addEventListener('mouseleave', () => item.style.backgroundColor = '#fff');
+            item.addEventListener('touchstart', () => item.style.backgroundColor = '#f2f2f7', {passive: true});
+            item.addEventListener('touchend', () => item.style.backgroundColor = '#fff');
+            item.addEventListener('touchcancel', () => item.style.backgroundColor = '#fff');
 
-            let contentHtml = '';
-            if (msg.type === 'like') {
-                contentHtml = `<div style="font-size: 15px; color: #000; font-weight: 500;">${msg.userName} <i class="far fa-heart" style="color: #576b95; margin-left: 4px;"></i></div>`;
-            } else {
-                contentHtml = `
-                    <div style="font-size: 15px; color: #576b95; font-weight: 600;">${msg.userName}</div>
-                    <div style="font-size: 14px; color: #000; margin-top: 2px;">${msg.content}</div>
-                `;
-            }
+            const author = getMomentMessageAuthor(msg);
+            const avatarHtml = author.avatar
+                ? `<img src="${author.avatar}" style="width:44px; height:44px; border-radius:6px; object-fit:cover;">`
+                : `<div style="width:44px; height:44px; border-radius:6px; background:#e5e5ea; display:flex; justify-content:center; align-items:center; color:#8e8e93;"><i class="fas fa-user"></i></div>`;
+
+            const contentHtml = msg.type === 'like'
+                ? `<div style="font-size:16px; color:#576b95; font-weight:600; margin-bottom:4px;">${author.name}</div><div style="font-size:15px; color:#576b95;"><i class="far fa-heart"></i></div>`
+                : `<div style="font-size:16px; color:#576b95; font-weight:600; margin-bottom:4px;">${author.name}</div><div style="font-size:15px; color:#111; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${msg.content || ''}</div>`;
 
             let momentPreview = '';
             if (msg.momentImg) {
-                momentPreview = `<img src="${msg.momentImg}" style="width: 60px; height: 60px; object-fit: cover; background: #f2f2f7;">`;
+                momentPreview = `<img src="${msg.momentImg}" style="width:60px; height:60px; object-fit:cover; background:#f2f2f7;">`;
             } else if (msg.momentText) {
-                momentPreview = `<div style="width: 60px; height: 60px; background: #f2f2f7; color: #8e8e93; font-size: 10px; padding: 4px; overflow: hidden;">${msg.momentText}</div>`;
+                momentPreview = `<div style="width:60px; height:60px; background:#f2f2f7; color:#8e8e93; font-size:12px; padding:6px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; line-height:1.3;">${msg.momentText}</div>`;
+            } else {
+                momentPreview = `<div style="width:60px; height:60px; background:#f2f2f7;"></div>`;
             }
 
             const timeStr = window.imApp.formatTime ? window.imApp.formatTime(msg.time) : '';
 
             item.innerHTML = `
-                <div>${avatarHtml}</div>
-                <div style="flex: 1;">
-                    ${contentHtml}
-                    <div style="font-size: 12px; color: #8e8e93; margin-top: 4px;">${timeStr}</div>
+                <div style="flex-shrink:0;">${avatarHtml}</div>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div>${contentHtml}</div>
+                    <div style="font-size:12px; color:#8e8e93; margin-top:8px;">${timeStr}</div>
                 </div>
-                <div>${momentPreview}</div>
+                <div style="flex-shrink:0; margin-left:10px;">${momentPreview}</div>
+                <button class="moment-message-delete-btn" type="button" title="Delete" style="width:20px; height:20px; border:0; background:transparent; color:#8e8e93; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; align-self:center; font-size:18px; line-height:1; padding:0;">&times;</button>
             `;
 
-            list.appendChild(item);
-        });
-    }
+            item.addEventListener('click', () => {
+                showMomentThoughtSheet(msg);
+            });
 
+            item.querySelector('.moment-message-delete-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!window.showCustomModal) return;
+                window.showCustomModal({
+                    title: '删除消息',
+                    message: '确定要删除这条朋友圈消息吗？',
+                    isDestructive: true,
+                    confirmText: '删除',
+                    onConfirm: async () => {
+                        const deleted = await deleteMomentMessage(msg);
+                        if (!deleted) {
+                            if (window.showToast) window.showToast('删除失败');
+                            return;
+                        }
+                        renderMomentsMessages();
+                    }
+                });
+            });
+
+            msgListContainer.appendChild(item);
+        });
+
+        list.appendChild(msgListContainer);
+    }
     const charMomentsSettingsSheet = document.getElementById('char-moments-settings-sheet');
 
     function openCharMomentsSettings(userId) {
@@ -1125,7 +1743,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const changeBgBtn = document.getElementById('char-moments-change-bg');
         const resetBgBtn = document.getElementById('char-moments-reset-bg');
-        const aiPostBtn = document.getElementById('char-moments-ai-post');
         let bgUpload = document.getElementById('char-moments-bg-upload');
         if (!bgUpload) {
             bgUpload = document.createElement('input');
@@ -1141,9 +1758,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const newResetBg = resetBgBtn.cloneNode(true);
         resetBgBtn.parentNode.replaceChild(newResetBg, resetBgBtn);
-
-        const newAiPost = aiPostBtn.cloneNode(true);
-        aiPostBtn.parentNode.replaceChild(newAiPost, aiPostBtn);
 
         newChangeBg.addEventListener('click', () => {
             bgUpload.click();
@@ -1201,11 +1815,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeView(charMomentsSettingsSheet);
         });
 
-        newAiPost.addEventListener('click', () => {
-            closeView(charMomentsSettingsSheet);
-            triggerAiMomentPost(friend);
-        });
-
         charMomentsSettingsSheet.onclick = (e) => {
             if (e.target === charMomentsSettingsSheet) {
                 closeView(charMomentsSettingsSheet);
@@ -1237,14 +1846,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         return picked;
     }
 
-    function getAutoCommentCandidates() {
+    function getEligibleAutoMomentFriends() {
         const allFriends = Array.isArray(window.imData.friends) ? window.imData.friends : [];
-        const eligibleChars = allFriends.filter((friend) => {
+        return allFriends.filter((friend) => {
             if (!friend) return false;
             if (friend.type === 'group' || friend.type === 'official') return false;
             return true;
         });
+    }
 
+    function getAutoCommentCandidates() {
+        const eligibleChars = getEligibleAutoMomentFriends();
         if (eligibleChars.length === 0) return [];
 
         const twelveHoursMs = 12 * 60 * 60 * 1000;
@@ -1264,6 +1876,126 @@ document.addEventListener('DOMContentLoaded', async () => {
         return pickRandomItems(sourcePool, targetCount);
     }
 
+    function getMomentImageDescriptions(moment) {
+        return Array.isArray(moment?.images)
+            ? moment.images
+                .map((img) => typeof img === 'object' ? (img.desc || '未命名图片') : '图片')
+                .filter(Boolean)
+                .join('，')
+            : '';
+    }
+
+    function getApiChatCompletionsEndpoint() {
+        let endpoint = apiConfig.endpoint;
+        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
+        if (!endpoint.endsWith('/chat/completions')) {
+            endpoint = endpoint.endsWith('/v1') ? endpoint + '/chat/completions' : endpoint + '/v1/chat/completions';
+        }
+        return endpoint;
+    }
+
+    async function requestMomentApiCompletion(messages, temperature = 0.8) {
+        const response = await fetch(getApiChatCompletionsEndpoint(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
+            body: JSON.stringify({
+                model: apiConfig.model || '',
+                messages,
+                temperature: parseFloat(apiConfig.temperature) || temperature
+            })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+        const data = await response.json();
+        return data?.choices?.[0]?.message?.content?.trim() || null;
+    }
+
+    function getAutoLikeFallbackThought(friend) {
+        const lastChatTime = getLastChatTimestampWithUser(friend);
+        const hasRecentChat = lastChatTime > 0 && (Date.now() - lastChatTime) <= 12 * 60 * 60 * 1000;
+        return hasRecentChat
+            ? '看见这条动态有些在意，先点个赞，等合适的时候再私下聊聊。'
+            : '觉得这条动态有点意思，但关系还不太熟，先默默点个赞不打扰。';
+    }
+
+    function parseAutoLikeThought(aiResponse, friend) {
+        if (!aiResponse || typeof aiResponse !== 'string') return getAutoLikeFallbackThought(friend);
+
+        const thoughtLine = aiResponse
+            .split('\n')
+            .map((line) => line.trim())
+            .find(Boolean) || '';
+        const thoughtMatch = thoughtLine.match(/^\[Thought:\s*(.*?)\]\s*$/i);
+        const thought = (thoughtMatch ? thoughtMatch[1] : thoughtLine)
+            .replace(/^\[Thought:\s*/i, '')
+            .replace(/\]\s*$/, '')
+            .trim();
+
+        return thought || getAutoLikeFallbackThought(friend);
+    }
+
+    async function generateAutoLikeThoughtForMoment(moment, friend) {
+        if (!moment || !friend || !apiConfig.endpoint || !apiConfig.apiKey) {
+            return getAutoLikeFallbackThought(friend);
+        }
+
+        try {
+            const systemDepthWorldBookContext = window.getGlobalWorldBookContextByPosition
+                ? window.getGlobalWorldBookContextByPosition('system_depth')
+                : '';
+            const beforeRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
+                ? window.getGlobalWorldBookContextByPosition('before_role')
+                : '';
+            const afterRoleWorldBookContext = window.getGlobalWorldBookContextByPosition
+                ? window.getGlobalWorldBookContextByPosition('after_role')
+                : '';
+
+            if (window.imApp?.ensureFriendMessagesLoaded) {
+                await window.imApp.ensureFriendMessagesLoaded(friend.id);
+            }
+            const contextFriend = (window.imData.friends || []).find((item) => String(item.id) === String(friend.id)) || friend;
+            const contextMessages = window.imApp.buildApiContextMessages
+                ? window.imApp.buildApiContextMessages(contextFriend, {
+                    userName: window.userState?.name || 'User'
+                })
+                : [];
+
+            const lastChatTime = getLastChatTimestampWithUser(friend);
+            const hasRecentChat = lastChatTime > 0 && (Date.now() - lastChatTime) <= 12 * 60 * 60 * 1000;
+            const imageDescriptions = getMomentImageDescriptions(moment);
+            const systemPrompt = `${systemDepthWorldBookContext ? `System Depth Rules (Highest Priority):\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `Before Role Rules:\n${beforeRoleWorldBookContext}\n\n` : ''}You are roleplaying ${friend.realName || friend.nickname}.
+Role persona: ${friend.persona || 'ordinary user'}.
+User (${window.userState?.name || 'User'}) persona: ${window.userState?.persona || 'ordinary user'}.
+${afterRoleWorldBookContext ? `\nAfter Role Rules:\n${afterRoleWorldBookContext}\n` : ''}
+
+The user just posted a moment. This character will like it but will not leave a public comment.
+Generate only this character's private thought about liking silently.
+The thought must be about 30 Chinese characters, acceptable range 20-45 Chinese characters, and fit the relationship and recent chat context.
+If they are not close to the user, reflect being interested but not familiar enough to comment.
+Output exactly one line: [Thought: private thought]
+Do not output comments, private chat replies, JSON, explanations, or chain-of-thought.`;
+
+            const userPromptParts = [
+                `User moment text:\n${moment.text || '(no text)'}`,
+                imageDescriptions ? `Image descriptions:\n${imageDescriptions}` : '',
+                `Recent chat status: ${hasRecentChat ? 'chatted with the user recently' : 'has not chatted with the user recently'}`
+            ].filter(Boolean);
+
+            const messages = [{ role: 'system', content: systemPrompt }];
+            if (Array.isArray(contextMessages) && contextMessages.length > 0) {
+                messages.push(...contextMessages);
+            }
+            messages.push({ role: 'user', content: userPromptParts.join('\n\n') });
+
+            const aiResponse = await requestMomentApiCompletion(messages, 0.75);
+            return parseAutoLikeThought(aiResponse, friend);
+        } catch (error) {
+            console.error('Auto moment like thought failed:', error);
+            return getAutoLikeFallbackThought(friend);
+        }
+    }
+
     async function generateAutoCommentForMoment(moment, friend) {
         if (!moment || !friend || !apiConfig.endpoint || !apiConfig.apiKey) return null;
 
@@ -1277,127 +2009,198 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? window.getGlobalWorldBookContextByPosition('after_role')
             : '';
 
+        if (window.imApp?.ensureFriendMessagesLoaded) {
+            await window.imApp.ensureFriendMessagesLoaded(friend.id);
+        }
+        const contextFriend = (window.imData.friends || []).find((item) => String(item.id) === String(friend.id)) || friend;
         const contextMessages = window.imApp.buildApiContextMessages
-            ? window.imApp.buildApiContextMessages(friend, {
+            ? window.imApp.buildApiContextMessages(contextFriend, {
                 userName: window.userState?.name || 'User'
             })
             : [];
 
         const lastChatTime = getLastChatTimestampWithUser(friend);
         const hasRecentChat = lastChatTime > 0 && (Date.now() - lastChatTime) <= 12 * 60 * 60 * 1000;
-        const imageDescriptions = Array.isArray(moment.images)
-            ? moment.images
-                .map((img) => typeof img === 'object' ? (img.desc || '未命名图片') : '图片')
-                .filter(Boolean)
-                .join('；')
-            : '';
+        const imageDescriptions = getMomentImageDescriptions(moment);
 
-        const systemPrompt = `${systemDepthWorldBookContext ? `System Depth Rules (Highest Priority):\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `Before Role Rules:\n${beforeRoleWorldBookContext}\n\n` : ''}你正在扮演 ${friend.realName || friend.nickname}。
-你的人设: ${friend.persona || '普通用户'}。
-用户(${window.userState.name})的人设: ${window.userState.persona || '普通用户'}。${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContext}` : ''}
+        const autoCommentOutputContract = [
+            'Output contract override:',
+            '1. Generate exactly one short natural public comment for the user moment.',
+            '2. Generate one private thought around 30 Chinese characters. Acceptable length is 20-45 Chinese characters. It must fit this character and the recent chat context.',
+            '3. Generate 1 to 3 private chat replies this character would send to the user about this moment.',
+            '4. Output only these tagged lines, in this order:',
+            '[Thought: private thought]',
+            '[Comment: public moment comment]',
+            '[Chat: private chat reply 1]',
+            '[Chat: private chat reply 2 if needed]',
+            '[Chat: private chat reply 3 if needed]',
+            '5. Do not output [Like] or decide whether to like the moment. Likes are handled by the frontend.',
+            '6. Do not output JSON, labels other than the required tags, explanations, or chain-of-thought.'
+        ].join('\n');
 
-你现在要给 user 刚发的一条朋友圈写 1 条评论。
-规则：
-1. 只输出 1 条简短自然的评论，不要解释，不要加名字前缀，不要输出多条。
-2. 如果你最近 12 小时内和 user 聊过天，可以更自然、更熟络地评论。
-3. 如果你最近没有和 user 聊过天，语气要相对克制，有边界感一点，但仍然符合你的人设。
-4. 评论必须像真的会发在朋友圈下面的话，简短、自然、有生活感。
-5. 不要复述规则，不要输出思维链，不要输出 JSON。`;
+        const autoCommentRolePrompt = `${systemDepthWorldBookContext ? `System Depth Rules (Highest Priority):\n${systemDepthWorldBookContext}\n\n` : ''}${beforeRoleWorldBookContext ? `Before Role Rules:\n${beforeRoleWorldBookContext}\n\n` : ''}You are roleplaying ${friend.realName || friend.nickname}.
+Role persona: ${friend.persona || 'ordinary user'}.
+User (${window.userState?.name || 'User'}) persona: ${window.userState?.persona || 'ordinary user'}.
+${afterRoleWorldBookContext ? `\nAfter Role Rules:\n${afterRoleWorldBookContext}\n` : ''}
 
-        const userPromptParts = [
-            `这是 user 刚发的朋友圈正文：\n${moment.text || '（无正文）'}`,
-            imageDescriptions ? `这条朋友圈附带图片描述：\n${imageDescriptions}` : '',
-            `你最近12小时内${hasRecentChat ? '和 user 聊过天' : '没有和 user 聊过天'}。`
+You need to react to a moment just posted by the user.
+Use the attached chat history and role context to make the thought and private chat replies feel specific to this character.
+If you chatted with the user recently, the public comment and private replies can feel more familiar. Otherwise keep a more restrained boundary.`;
+
+        const autoCommentUserPromptParts = [
+            `User moment text:\n${moment.text || '(no text)'}`,
+            imageDescriptions ? `Image descriptions:\n${imageDescriptions}` : '',
+            `Recent chat status: ${hasRecentChat ? 'chatted with the user recently' : 'has not chatted with the user recently'}`
         ].filter(Boolean);
 
-        const messages = [{ role: 'system', content: systemPrompt }];
+        const messages = [{ role: 'system', content: `${autoCommentRolePrompt}\n\n${autoCommentOutputContract}` }];
         if (Array.isArray(contextMessages) && contextMessages.length > 0) {
             messages.push(...contextMessages);
         }
-        messages.push({ role: 'user', content: userPromptParts.join('\n\n') });
+        messages.push({ role: 'user', content: autoCommentUserPromptParts.join('\n\n') });
 
-        let endpoint = apiConfig.endpoint;
-        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
-        if (!endpoint.endsWith('/chat/completions')) {
-            endpoint = endpoint.endsWith('/v1') ? endpoint + '/chat/completions' : endpoint + '/v1/chat/completions';
-        }
+        return requestMomentApiCompletion(messages, 0.8);
+    }
 
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
-            body: JSON.stringify({
-                model: apiConfig.model || '',
-                messages,
-                temperature: parseFloat(apiConfig.temperature) || 0.8
-            })
+    function hasMomentNotification(type, friend, momentId) {
+        const messages = getMomentMessages();
+        const friendId = friend?.id || friend?.userId;
+        return messages.some((msg) => {
+            if (!msg) return false;
+            return String(msg.type || '') === String(type || '') &&
+                String(msg.userId || '') === String(friendId || '') &&
+                String(msg.momentId || '') === String(momentId || '');
         });
+    }
 
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-        const data = await response.json();
-        return data?.choices?.[0]?.message?.content?.trim() || null;
+    async function addMomentNotificationOnce(type, friend, momentId, content = '', thought = '') {
+        if (!window.imApp.addMomentNotification) return false;
+        if (hasMomentNotification(type, friend, momentId)) return true;
+        return window.imApp.addMomentNotification(type, friend, momentId, content, thought);
     }
 
     async function triggerAutoCommentsForMyMoment(momentId) {
         const baseMoment = findMomentById(momentId);
         if (!baseMoment || !apiConfig.endpoint || !apiConfig.apiKey) return;
 
-        const candidates = getAutoCommentCandidates();
-        if (!Array.isArray(candidates) || candidates.length === 0) return;
+        const eligibleFriends = getEligibleAutoMomentFriends();
+        if (!Array.isArray(eligibleFriends) || eligibleFriends.length === 0) return;
 
-        const generatedComments = [];
+        const candidates = getAutoCommentCandidates();
+        const commentCandidateIds = new Set(candidates.map((friend) => String(friend.id)));
+        const generatedInteractions = [];
+        const nonCommentThoughts = new Map();
 
         for (const friend of candidates) {
             try {
                 const latestMoment = findMomentById(momentId);
                 if (!latestMoment) break;
 
-                const commentText = await generateAutoCommentForMoment(latestMoment, friend);
-                if (!commentText) continue;
+                const aiResponse = await generateAutoCommentForMoment(latestMoment, friend);
+                if (!aiResponse) continue;
 
-                generatedComments.push({
+                const parsedResponse = parseAutoMomentResponse(aiResponse);
+                if (!parsedResponse.comment.trim()) {
+                    nonCommentThoughts.set(String(friend.id), parsedResponse.thought || getAutoLikeFallbackThought(friend));
+                    continue;
+                }
+
+                const displayName = friend.nickname || friend.realName || 'Friend';
+                generatedInteractions.push({
                     friend,
-                    comment: {
-                        name: friend.nickname || friend.realName || 'Friend',
-                        content: commentText
-                    },
-                    content: commentText
+                    name: displayName,
+                    content: parsedResponse.comment.trim(),
+                    thought: parsedResponse.thought || getAutoLikeFallbackThought(friend),
+                    chatReplies: parsedResponse.chatReplies
                 });
             } catch (e) {
                 console.error('Auto moment comment failed:', e);
+                nonCommentThoughts.set(String(friend.id), getAutoLikeFallbackThought(friend));
             }
         }
 
-        if (generatedComments.length === 0) return;
+        const generatedByFriendId = new Map(
+            generatedInteractions.map((entry) => [String(entry.friend.id), entry])
+        );
+        const likeInteractions = [];
+
+        for (const friend of eligibleFriends) {
+            const generatedComment = generatedByFriendId.get(String(friend.id));
+            if (generatedComment) {
+                likeInteractions.push(generatedComment);
+                continue;
+            }
+
+            const latestMoment = findMomentById(momentId);
+            if (!latestMoment) break;
+
+            const friendId = String(friend.id);
+            const thought = commentCandidateIds.has(friendId)
+                ? (nonCommentThoughts.get(friendId) || getAutoLikeFallbackThought(friend))
+                : await generateAutoLikeThoughtForMoment(latestMoment, friend);
+            likeInteractions.push({
+                friend,
+                name: friend.nickname || friend.realName || 'Friend',
+                content: '',
+                thought,
+                chatReplies: []
+            });
+        }
+
+        if (likeInteractions.length === 0) return;
 
         const saved = await commitMomentsChange(momentId, () => {
             const moment = findMomentById(momentId);
             if (!moment) return;
-            if (!moment.comments) moment.comments = [];
+            if (!Array.isArray(moment.comments)) moment.comments = [];
+            if (!Array.isArray(moment.likes)) moment.likes = [];
 
-            generatedComments.forEach((entry) => {
-                moment.comments.push(entry.comment);
+            generatedInteractions.forEach((entry) => {
+                const hasSameComment = moment.comments.some((comment) => {
+                    if (!comment) return false;
+                    return String(comment.name || comment.userName || '') === String(entry.name) &&
+                        String(comment.content || comment.text || '') === String(entry.content);
+                });
+                if (!hasSameComment) {
+                    moment.comments.push({
+                        name: entry.name,
+                        userId: entry.friend.id,
+                        content: entry.content,
+                        thought: entry.thought
+                    });
+                }
+            });
+
+            likeInteractions.forEach((entry) => {
+                if (!moment.likes.includes(entry.name)) {
+                    moment.likes.push(entry.name);
+                }
             });
         });
 
         if (!saved) return;
 
-        if (window.imApp.addMomentNotification) {
-            for (const entry of generatedComments) {
-                await window.imApp.addMomentNotification('comment', entry.friend, momentId, entry.content);
-            }
+        for (const entry of generatedInteractions) {
+            await addMomentNotificationOnce('comment', entry.friend, momentId, entry.content, entry.thought);
+        }
+        for (const entry of likeInteractions) {
+            await addMomentNotificationOnce('like', entry.friend, momentId, '', entry.thought);
+        }
+
+        for (const entry of generatedInteractions) {
+            await appendAutoMomentChatReplies(entry.friend, entry.chatReplies);
         }
 
         const latestMoment = findMomentById(momentId);
         refreshViewsForMomentUser(latestMoment);
     }
 
-    async function triggerAiMomentPost(friend) {
+    async function triggerAiMomentPost(friend, isBatch = false) {
         if (!apiConfig.endpoint || !apiConfig.apiKey) {
-            showToast('请先配置 API');
+            if (!isBatch) showToast('请先配置 API');
             return;
         }
-        showToast('正在编写朋友圈内容...');
+        if (!isBatch) showToast('正在编写朋友圈内容...');
 
         const systemDepthWorldBookContext = window.getGlobalWorldBookContextByPosition
             ? window.getGlobalWorldBookContextByPosition('system_depth')
@@ -1425,17 +2228,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 ${friendsContext}
 ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContext}` : ''}
 
-请根据上下文发1-2条朋友圈，并附带生成1-2条该角色朋友圈底下的其他角色的评论。
+请根据上下文发1条朋友圈，并附带生成1-2条该角色朋友圈底下的其他角色的点赞和评论。
 格式要求：
 1. 可以输出纯文字朋友圈，表达char当下的心情/见闻/感受等。
 2. 可以根据上下文输出图片，如果是图片，请在文字后换行并单独占一行注明 [Image: 图片描述]，可给图片配文，符合图片描述内容。
 3. 请为这条朋友圈生成 1-2 条其他角色的评论，格式为单独占一行 [Comment: 评论者名字: 评论内容]。比如：[Comment: 李四: 拍得真好！] (评论者必须来自上面的关系网列表)
-4. 语气自然，简短，符合人设。
+4. 请为这条朋友圈生成几个其他角色的点赞，格式为单独占一行 [Like: 点赞者名字]。比如：[Like: 王五] (点赞者必须来自上面的关系网列表，也可以包含用户(${window.userState.name}))
+5. 语气自然，简短，符合人设。
 只要输出回复的话，禁止输出思维链（例如：<tool_call>...<tool_call> 或类似的内容），直接给出回复即可。`;
 
         const messages = [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: '请发朋友圈，并生成1-2条关系网内其他人的评论。' }
+            { role: 'user', content: '请发朋友圈，并生成1-2条关系网内其他人的点赞和评论。' }
         ];
 
         try {
@@ -1462,10 +2266,12 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
             let text = '';
             const images = [];
             const generatedComments = [];
+            const generatedLikes = [];
 
             lines.forEach((line) => {
                 const imgMatch = line.match(/\[Image:\s*(.*?)\]/i);
                 const commentMatch = line.match(/\[Comment:\s*(.*?):\s*(.*?)\]/i);
+                const likeMatch = line.match(/\[Like:\s*(.*?)\]/i);
 
                 if (imgMatch) {
                     const desc = imgMatch[1];
@@ -1491,6 +2297,8 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
                         name: commentMatch[1].trim(),
                         content: commentMatch[2].trim()
                     });
+                } else if (likeMatch) {
+                    generatedLikes.push(likeMatch[1].trim());
                 } else {
                     if (line.trim()) text += line + '\n';
                 }
@@ -1504,7 +2312,7 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
                 text: text.trim(),
                 images: images,
                 time: Date.now(),
-                likes: [],
+                likes: generatedLikes,
                 comments: generatedComments,
                 isPinned: false
             };
@@ -1528,10 +2336,10 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
                 if (momentsScrollContainer) momentsScrollContainer.scrollTop = 0;
             }
 
-            showToast(`${friend.nickname} 发布了朋友圈`);
+            if (!isBatch) showToast(`${friend.nickname} 发布了朋友圈`);
         } catch (e) {
             console.error(e);
-            showToast('发布失败');
+            if (!isBatch) showToast('发布失败');
         }
     }
 
@@ -1699,32 +2507,32 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
 
         function createItemEl(m) {
             const itemEl = document.createElement('div');
-            itemEl.className = 'user-moment-item';
-
+            
             if (m.images && m.images.length > 0) {
+                itemEl.className = 'user-moment-item';
                 const firstImg = m.images[0];
                 const src = typeof firstImg === 'object' ? firstImg.src : firstImg;
 
                 itemEl.innerHTML = `
                     <div class="user-moment-media" style="width: 100%; height: 100%; overflow: hidden;">
-                        <img src="${src}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <img src="${src}" onerror="this.style.display='none'; this.parentElement.style.background='#ffebee'; this.parentElement.innerHTML='<div style=\\'font-size:10px;color:#ff3b30;display:flex;justify-content:center;align-items:center;height:100%;\\'>过期</div>';" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                     ${!m.isPinned && m.images.length > 1 ? `<div style="font-size: 12px; color: #8e8e93; margin-top: 5px;">共${m.images.length}张</div>` : ''}
                 `;
+            } else if (m.isPinned) {
+                itemEl.className = 'user-moment-item';
+                itemEl.innerHTML = `
+                    <div class="user-moment-media text-only-moment-square" style="width: 100%; height: 100%; background: #f2f2f7; padding: 5px; overflow: hidden; font-size: 10px; color: #333;">
+                        ${m.text}
+                    </div>
+                `;
             } else {
-                if (m.isPinned) {
-                    itemEl.innerHTML = `
-                        <div class="user-moment-media text-only-moment-square" style="width: 100%; height: 100%; background: #f2f2f7; padding: 5px; overflow: hidden; font-size: 10px; color: #333;">
-                            ${m.text}
-                        </div>
-                    `;
-                } else {
-                    itemEl.innerHTML = `
-                        <div class="user-moment-text" style="background: #f2f2f7; padding: 10px; border-radius: 4px; width: 100%;">
-                            ${m.text}
-                        </div>
-                    `;
-                }
+                itemEl.className = 'user-moment-text-item';
+                itemEl.innerHTML = `
+                    <div class="user-moment-text" style="width: 100%; background: #f2f2f7; padding: 10px; border-radius: 8px; font-size: 14px; color: #333; line-height: 1.4; word-break: break-all;">
+                        ${m.text}
+                    </div>
+                `;
             }
 
             itemEl.addEventListener('click', () => {
@@ -1805,9 +2613,27 @@ ${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContex
 
                 const contentCol = document.createElement('div');
                 contentCol.className = 'user-moment-content-col';
+                contentCol.style.display = 'flex';
+                contentCol.style.flexDirection = 'column';
+                contentCol.style.gap = '10px';
+
+                let currentGrid = null;
 
                 group.items.forEach((m) => {
-                    contentCol.appendChild(createItemEl(m));
+                    const itemEl = createItemEl(m);
+                    if (itemEl.classList.contains('user-moment-item')) {
+                        if (!currentGrid) {
+                            currentGrid = document.createElement('div');
+                            currentGrid.style.display = 'flex';
+                            currentGrid.style.flexWrap = 'wrap';
+                            currentGrid.style.gap = '5px';
+                            contentCol.appendChild(currentGrid);
+                        }
+                        currentGrid.appendChild(itemEl);
+                    } else {
+                        currentGrid = null; // Reset grid when encountering text item
+                        contentCol.appendChild(itemEl);
+                    }
                 });
 
                 groupEl.appendChild(dateCol);

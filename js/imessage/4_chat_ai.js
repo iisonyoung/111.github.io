@@ -23,6 +23,53 @@ document.addEventListener('DOMContentLoaded', () => {
             : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     }
 
+    function resolveMountedSticker(friend, categoryName, stickerName) {
+        const mounted = Array.isArray(friend?.mountedStickers) ? friend.mountedStickers.map(String) : [];
+        if (mounted.length === 0) return null;
+
+        const requestedCategory = String(categoryName || '').trim();
+        const requestedName = String(stickerName || '').trim();
+        if (!requestedName) return null;
+
+        const categories = Array.isArray(window.imData?.stickers) ? window.imData.stickers : [];
+        const allowedCategories = categories.filter(category => {
+            const name = String(category?.categoryName || '');
+            if (!mounted.includes(name)) return false;
+            return !requestedCategory || name === requestedCategory;
+        });
+
+        for (const category of allowedCategories) {
+            const sticker = (Array.isArray(category.items) ? category.items : [])
+                .find(item => String(item?.name || '').trim() === requestedName);
+            if (sticker && sticker.url) {
+                return {
+                    stickerCategory: category.categoryName || '',
+                    stickerName: sticker.name || requestedName,
+                    stickerUrl: sticker.url
+                };
+            }
+        }
+
+        return null;
+    }
+
+    function buildMountedStickerContext(friend) {
+        const mounted = Array.isArray(friend?.mountedStickers) ? friend.mountedStickers : [];
+        if (mounted.length === 0) return '';
+
+        const allStickers = Array.isArray(window.imData?.stickers) ? window.imData.stickers : [];
+        const stickerLines = [];
+        mounted.forEach(catName => {
+            const cat = allStickers.find(c => c.categoryName === catName);
+            if (cat && Array.isArray(cat.items) && cat.items.length > 0) {
+                const names = cat.items.map(s => s.name).filter(Boolean).join(', ');
+                if (names) stickerLines.push(`[${cat.categoryName}]: ${names}`);
+            }
+        });
+
+        return stickerLines.length > 0 ? stickerLines.join('\n') : '';
+    }
+
     function scheduleFriendPersistence(friendId, options = {}) {
         if (friendId == null) return false;
 
@@ -339,6 +386,11 @@ document.addEventListener('DOMContentLoaded', () => {
         aiReplyInFlight.add(friendKey);
 
         try {
+            if (window.imApp?.ensureStickersReady) {
+                await window.imApp.ensureStickersReady();
+            }
+            friend = getLiveFriendById(friend.id) || friend;
+
             typingRow = document.createElement('div');
             typingRow.className = 'chat-row ai-row typing-row';
             typingRow.innerHTML = `
@@ -493,19 +545,9 @@ ${sections}`;
             scheduleSection,
             `Relationship Network:\n${relationshipText}`,
             (() => {
-                const mounted = friend.mountedStickers || [];
-                if (mounted.length === 0) return '';
-                const allStickers = window.imData.stickers || [];
-                const stickerLines = [];
-                mounted.forEach(catName => {
-                    const cat = allStickers.find(c => c.categoryName === catName);
-                    if (cat && cat.items.length > 0) {
-                        const names = cat.items.map(s => s.name).join(', ');
-                        stickerLines.push(`[${catName}]: ${names}`);
-                    }
-                });
-                if (stickerLines.length === 0) return '';
-                return `Available Stickers (both you and user can use, describe sticker usage with {{sticker:name}} format):\n${stickerLines.join('\n')}`;
+                const stickerText = buildMountedStickerContext(friend);
+                if (!stickerText) return '';
+                return `Available Stickers (only use these exact category/name pairs when outputting sticker JSON):\n${stickerText}`;
             })(),
             (() => {
                 const panel = window.imChat.getProfilePanelData
@@ -573,6 +615,10 @@ ${sections}`;
             const membersInfo = groupMembers.length > 0
                 ? groupMembers.map(member => {
                     let infoStr = `Name: ${member.nickname}\nPersona: ${member.persona || 'None'}\nOverview: ${member.memory?.overview || 'None'}`;
+                    const memberStickers = buildMountedStickerContext(member);
+                    if (memberStickers) {
+                        infoStr += `\nAvailable Stickers for ${member.nickname}:\n${memberStickers}`;
+                    }
                     
                     // 如果开启了挂载单聊记忆，并且有单聊上下文
                     if (groupMemorySettings[member.id]) {
@@ -615,6 +661,8 @@ ${allowedSpeakerNames.length > 0 ? allowedSpeakerNames.join('、') : 'None'}${af
 6. 【输出格式】：必须把聊天气泡放在 <chat_json> 和 </chat_json> 标签内，标签内只能是合法 JSON 数组，不能有 markdown 代码块，不能有解释文字。
 7. 【重要】如果群员想要发红包，或者你觉得气氛到了该发红包了，可以输出红包对象格式：{"type":"red_packet","speaker":"发红包的成员名","amount":100,"count":5,"description":"红包封面语"}。
 8. 普通文本气泡格式必须为 {"type":"text","speaker":"成员名","text":"气泡内容","thought":"该成员此刻的心理活动，10-30字心声，基于当前聊天上下文","translation":"中文翻译或空字符串","quote":"被引用内容或空字符串"}。
+8a. 语音气泡格式可以为 {"type":"voice","speaker":"成员名","text":"语音内容","thought":"该成员此刻的心理活动，10-30字心声，基于当前聊天上下文","translation":"中文翻译或空字符串","quote":"被引用内容或空字符串"}。
+8b. 表情包格式可以为 {"type":"sticker","speaker":"成员名","category":"分类名","name":"表情包名","thought":"该成员此刻的心理活动，10-30字心声，基于当前聊天上下文"}；只能使用 Available Stickers 中列出的已绑定分类和名称。
 9. speaker 必须且只能使用以上允许发言名单中的完整准确名字。
 10. translation 只能翻译当前这一条 text；如果 text 本身是中文，translation 必须是空字符串。
 11. quote 只有在你确实想引用用户或上一条消息时才填写，否则必须是空字符串。
@@ -640,6 +688,8 @@ Reply naturally as your character in a chat app.
 3. 【输出格式】必须把聊天气泡放在 <chat_json> 和 </chat_json> 标签内，标签内只能是合法 JSON 数组，不能有 markdown 代码块，不能有解释文字。
 4. JSON 数组中的每一个对象都严格对应“一个独立气泡”或“一个独立支付卡片”，绝对禁止把多条气泡合并到同一个 text 字段里。
 5. 普通文本对象格式必须为 {"type":"text","text":"气泡内容","translation":"该条气泡的中文翻译或空字符串","quote":"被引用内容或空字符串"}。
+5a. 语音对象格式可以为 {"type":"voice","text":"语音内容","translation":"该条语音的中文翻译或空字符串","quote":"被引用内容或空字符串"}。
+5b. 表情包对象格式可以为 {"type":"sticker","category":"分类名","name":"表情包名"}；只能使用 Available Stickers 中列出的已绑定分类和名称。
 6. 支付对象格式必须为 {"type":"payment","paymentAction":"receive|reject|transfer","amount":88.88,"description":"原因或备注"}。
 7. 当 paymentAction 为 receive 时，表示你收下了用户刚刚给的钱；当 paymentAction 为 reject 时，表示你退回了用户刚刚给的钱；当 paymentAction 为 transfer 时，表示你给用户转账。
 7. translation 只能翻译当前这一条 text；如果 text 本身是中文，translation 必须是空字符串。
@@ -949,6 +999,36 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                     if (itemType === 'call') {
                         return { kind: 'call' };
                     }
+
+                    if (itemType === 'voice') {
+                        const text = typeof item.text === 'string' ? item.text.trim() : '';
+                        if (!text) return null;
+
+                        return {
+                            kind: 'voice',
+                            text,
+                            thought: typeof item.thought === 'string' ? item.thought.trim() : '',
+                            translation: typeof item.translation === 'string'
+                                ? item.translation.trim()
+                                : (typeof item.trans === 'string' ? item.trans.trim() : ''),
+                            replyTo: typeof item.quote === 'string' ? item.quote.trim() : '',
+                            speaker: typeof item.speaker === 'string' ? item.speaker.trim() : ''
+                        };
+                    }
+
+                    if (itemType === 'sticker') {
+                        const name = typeof item.name === 'string' ? item.name.trim() : '';
+                        if (!name) return null;
+
+                        return {
+                            kind: 'sticker',
+                            text: name,
+                            stickerName: name,
+                            stickerCategory: typeof item.category === 'string' ? item.category.trim() : '',
+                            thought: typeof item.thought === 'string' ? item.thought.trim() : '',
+                            speaker: typeof item.speaker === 'string' ? item.speaker.trim() : ''
+                        };
+                    }
                     
                     if (itemType === 'red_packet') {
                         const amount = Number(item.amount);
@@ -1210,6 +1290,8 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                 const itemTranslation = typeof currentItem.translation === 'string' && currentItem.translation.trim()
                     ? currentItem.translation.trim()
                     : null;
+                const isVoiceReply = currentItem.kind === 'voice';
+                const isStickerReply = currentItem.kind === 'sticker';
 
                 if (!text) {
                     qIndex++;
@@ -1227,10 +1309,9 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
 
                 let currentSpeakerName = null;
                 let currentSpeakerAvatar = null;
+                let detectedSpeaker = null;
                 const speakerFriend = getLiveFriendById(friend.id) || friend;
                 if (speakerFriend.type === 'group') {
-                    let detectedSpeaker = null;
-
                     if (structuredItems && currentItem.speaker) {
                         detectedSpeaker = window.imChat.normalizeGroupSpeaker(speakerFriend, currentItem.speaker);
                     } else {
@@ -1276,6 +1357,18 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                     return true;
                 }
 
+                let resolvedSticker = null;
+                if (isStickerReply) {
+                    const stickerOwner = speakerFriend.type === 'group'
+                        ? (detectedSpeaker || (currentSpeakerName ? window.imChat.normalizeGroupSpeaker(speakerFriend, currentSpeakerName) : null))
+                        : speakerFriend;
+                    resolvedSticker = resolveMountedSticker(stickerOwner, currentItem.stickerCategory, currentItem.stickerName);
+                    if (!resolvedSticker) {
+                        qIndex++;
+                        return true;
+                    }
+                }
+
                 const delay = Math.max(500, Math.min(2000, text.length * 50));
 
                 // Only show typing animation if the user is STILL in this chat
@@ -1309,8 +1402,37 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                 }
 
                 const nowMsg = Date.now();
-                const msgObj = { id: window.imChat.createMessageId('msg'), role: 'assistant', content: text, timestamp: nowMsg, replyTo: aiReplyTo, apiRunId };
+                const msgObj = isStickerReply
+                    ? {
+                        id: window.imChat.createMessageId('sticker'),
+                        role: 'assistant',
+                        type: 'sticker',
+                        content: '[表情包]',
+                        text: resolvedSticker.stickerCategory
+                            ? `你发了一个表情包：${resolvedSticker.stickerCategory} / ${resolvedSticker.stickerName}`
+                            : `你发了一个表情包：${resolvedSticker.stickerName}`,
+                        stickerCategory: resolvedSticker.stickerCategory,
+                        stickerName: resolvedSticker.stickerName,
+                        stickerUrl: resolvedSticker.stickerUrl,
+                        timestamp: nowMsg,
+                        apiRunId
+                    }
+                    : isVoiceReply
+                    ? {
+                        id: window.imChat.createMessageId('voice'),
+                        role: 'assistant',
+                        type: 'voice_message',
+                        content: '[语音消息]',
+                        text,
+                        transcript: text,
+                        duration: Math.min(18, Math.max(3, Math.ceil(text.length / 3))),
+                        timestamp: nowMsg,
+                        replyTo: aiReplyTo,
+                        apiRunId
+                    }
+                    : { id: window.imChat.createMessageId('msg'), role: 'assistant', content: text, timestamp: nowMsg, replyTo: aiReplyTo, apiRunId };
                 if (currentSpeakerName) msgObj.speaker = currentSpeakerName;
+                if (currentSpeakerAvatar) msgObj.senderAvatarUrl = currentSpeakerAvatar;
                 if (speakerFriend.type === 'group' && currentItem.thought) {
                     msgObj.thought = currentItem.thought;
                 }
@@ -1324,11 +1446,15 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                 const renderFriend = getLiveFriendById(friend.id) || friend;
                 const isUserStillLooking = window.imData.currentActiveFriend && String(window.imData.currentActiveFriend.id) === String(renderFriend.id) && freshContainer;
 
-                if (isUserStillLooking) {
+                if (isUserStillLooking && isStickerReply && window.imChat.renderStickerMessageBubble) {
+                    window.imChat.renderStickerMessageBubble(msgObj, renderFriend, freshContainer, nowMsg);
+                } else if (isUserStillLooking && isVoiceReply && window.imChat.renderVoiceMessageBubble) {
+                    window.imChat.renderVoiceMessageBubble(msgObj, renderFriend, freshContainer, nowMsg);
+                } else if (isUserStillLooking) {
                     window.imChat.renderAiBubble(text, renderFriend, freshContainer, nowMsg, msgObj.translation, msgObj.showTranslation, msgObj.replyTo, currentSpeakerName, currentSpeakerAvatar, msgObj.id, msgObj.thought);
                 } else if (window.imApp.showBannerNotification) {
                     // Not looking at chat, show banner for this specific message bubble
-                    window.imApp.showBannerNotification(renderFriend, text);
+                    window.imApp.showBannerNotification(renderFriend, isStickerReply ? `[表情] ${resolvedSticker.stickerName}` : text);
                 }
 
                 const appended = window.imApp.appendFriendMessage

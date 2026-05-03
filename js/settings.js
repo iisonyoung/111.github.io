@@ -130,7 +130,7 @@
             { id: 'app-icon-3', name: 'b.stage', icon: null },
             { id: 'app-icon-4', name: 'X', icon: null },
             { id: 'app-icon-5', name: 'Diary', icon: null },
-            { id: 'app-icon-6', name: 'Maps', icon: null },
+            { id: 'app-icon-6', name: 'AppStore', icon: null },
             { id: 'app-icon-7', name: 'Netflix', icon: null },
             { id: 'app-icon-8', name: 'Loves', icon: null },
             { id: 'dock-icon-settings', name: '设置', icon: null },
@@ -178,7 +178,13 @@
                         const existingApp = themeState.apps.find(a => a.id === savedApp.id);
                         if (existingApp) {
                             existingApp.icon = savedApp.icon;
-                            existingApp.name = savedApp.name || existingApp.name;
+                            if (savedApp.id === 'app-icon-6' && (!savedApp.name || savedApp.name === 'Maps')) {
+                                existingApp.name = 'AppStore';
+                            } else if (savedApp.id === 'app-icon-8' && savedApp.name === 'Spotify') {
+                                existingApp.name = 'Loves';
+                            } else {
+                                existingApp.name = savedApp.name || existingApp.name;
+                            }
                         } else {
                             themeState.apps.push(savedApp);
                         }
@@ -1152,11 +1158,12 @@
                 } else if (app.id === 'app-icon-6') {
                     iconDiv.style.background = '#ffffff';
                     iconDiv.style.color = '#1c1c1e';
-                    ensureIconElement('fas fa-map-location-dot', 'color: #1c1c1e; font-size: 28px; filter: none;');
+                    iconDiv.style.fontSize = '30px';
+                    ensureIconElement('fab fa-app-store-ios', 'color: #1c1c1e; font-size: 30px; filter: none;');
                 } else if (app.id === 'app-icon-7') {
-                    iconDiv.style.background = '#000000';
-                    iconDiv.style.color = '#E50914';
-                    iconDiv.style.border = '1px solid #1c1c1e';
+                    iconDiv.style.background = '#ffffff';
+                    iconDiv.style.color = '#1c1c1e';
+                    iconDiv.style.border = '1px solid #e5e5ea';
                     iconDiv.style.fontSize = '32px';
                     iconDiv.style.fontWeight = '900';
                     iconDiv.style.fontFamily = 'Arial, sans-serif';
@@ -1188,6 +1195,7 @@
         const themeFontSizeSlider = document.getElementById('theme-font-size-slider');
         const themeFontSizeValue = document.getElementById('theme-font-size-value');
         const THEME_FONT_PREVIEW_TEXT = 'Aa 你好 Hello 123';
+        let themeFontSaveTimer = null;
         
         function cloneThemeFontSources(sources = {}) {
             return {
@@ -1318,9 +1326,22 @@
                 --theme-font-family: ${resolvedFamily};
                 --theme-font-size: ${resolvedSize};
             }
-            body, #app, input, textarea, button, select {
-                font-family: var(--theme-font-family);
+            body,
+            #app,
+            #app :where(.app-page, .settings-view, .bottom-sheet, .bottom-sheet-overlay, .settings-group, .settings-item, .settings-text, .form-item, .sheet-title, .sheet-action, .chat-bubble, .chat-row, .ins-chat-input-container, .ins-chat-messages, .global-textarea, input, textarea, button, select) {
+                font-family: var(--theme-font-family) !important;
                 font-size: var(--theme-font-size);
+            }
+            #app :where(*):not(i):not(.fa):not(.fas):not(.far):not(.fab):not(.fal):not(.fa-solid):not(.fa-regular):not(.fa-brands) {
+                font-family: var(--theme-font-family) !important;
+            }
+            #app :where(i, .fa, .fas, .far, .fab, .fal, .fa-solid, .fa-regular, .fa-brands),
+            #app :where(i, .fa, .fas, .far, .fab, .fal, .fa-solid, .fa-regular, .fa-brands)::before {
+                font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+            }
+            #app :where(#theme-bubble-css-input, #theme-chat-css-input, #theme-status-css-input, #bubble-css-input, #status-css-input, textarea[placeholder*="CSS"], textarea[placeholder*="css"]) {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace !important;
+                font-size: 13px !important;
             }`.trim();
             
             document.documentElement.style.setProperty('--theme-font-family', resolvedFamily);
@@ -1372,35 +1393,35 @@
             if (toastMessage) showToast(toastMessage);
         }
 
+        function scheduleThemeFontSave() {
+            if (themeFontSaveTimer) clearTimeout(themeFontSaveTimer);
+            themeFontSaveTimer = setTimeout(() => {
+                themeFontSaveTimer = null;
+                saveGlobalData();
+            }, 300);
+        }
+
         function createThemeFontPill({ label, family, isActive, onSelect, onDelete = null }) {
             const pill = document.createElement('button');
             pill.type = 'button';
             pill.className = `theme-font-pill ${isActive ? 'active' : ''}`;
             pill.style.fontFamily = family || 'system-ui';
-            pill.style.padding = '6px 16px';
-            pill.style.borderRadius = '16px';
-            pill.style.border = isActive ? '2px solid #007aff' : '1px solid #e5e5ea';
-            pill.style.background = isActive ? '#e8f2ff' : '#fff';
-            pill.style.color = isActive ? '#007aff' : '#000';
-            pill.style.cursor = 'pointer';
-            pill.style.display = 'flex';
-            pill.style.alignItems = 'center';
-            pill.style.gap = '6px';
-            pill.style.fontSize = '14px';
         
             const pillLabel = document.createElement('span');
+            pillLabel.className = 'theme-font-pill-label';
             pillLabel.textContent = label;
             pill.appendChild(pillLabel);
         
             pill.addEventListener('click', () => onSelect?.());
         
             if (typeof onDelete === 'function') {
-                const deleteBtn = document.createElement('div');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'theme-font-pill-delete';
                 deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
-                deleteBtn.style.padding = '2px';
-                deleteBtn.style.color = '#8e8e93';
                 deleteBtn.addEventListener('click', (event) => {
                     event.stopPropagation();
+                    event.preventDefault();
                     onDelete();
                 });
                 pill.appendChild(deleteBtn);
@@ -1577,9 +1598,14 @@
                 themeState.fontSize = normalizeThemeFontSize(event.target.value);
                 renderThemeFontPreview();
                 applyThemeFont(themeState);
-                saveGlobalData();
+                scheduleThemeFontSave();
             });
             themeFontSizeSlider.addEventListener('change', (event) => {
+                if (themeFontSaveTimer) {
+                    clearTimeout(themeFontSaveTimer);
+                    themeFontSaveTimer = null;
+                }
+                saveGlobalData();
                 showToast(`字体大小已调整为 ${themeState.fontSize}px`);
             });
         }

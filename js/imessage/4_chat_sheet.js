@@ -91,11 +91,10 @@ function createAttachmentSheet(page) {
                         <div style="font-size: 13px; color: #aeaeb2; margin-top: 4px;">Coming soon</div>
                     </div>
 
-                    <!-- Poll View Placeholder -->
-                    <div class="sheet-view view-poll" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: #fff; padding-bottom: 60px;">
-                        <i class="fas fa-chart-pie" style="font-size: 64px; color: #c7c7cc; margin-bottom: 16px;"></i>
-                        <div style="font-size: 16px; color: #8e8e93; font-weight: 500;">Create a Poll</div>
-                        <div style="font-size: 13px; color: #aeaeb2; margin-top: 4px;">Coming soon</div>
+                    <!-- Stickers View -->
+                    <div class="sheet-view view-stickers" style="position: absolute; inset: 0; display: none; flex-direction: column; background: #fff; padding: 12px 0 112px; overflow: hidden;">
+                        <div class="sheet-sticker-category-tabs"></div>
+                        <div class="sheet-stickers-list"></div>
                     </div>
 
                     <!-- More View -->
@@ -113,6 +112,12 @@ function createAttachmentSheet(page) {
                                 </div>
                                 <div class="attachment-more-pay-label">Pay</div>
                             </div>
+                            <div class="attachment-more-voice-entry">
+                                <div class="attachment-more-voice-icon">
+                                    <i class="fas fa-microphone-alt"></i>
+                                </div>
+                                <div class="attachment-more-voice-label">Voice</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -122,7 +127,8 @@ function createAttachmentSheet(page) {
                     <style>
                         #chat-attachment-sheet ::-webkit-scrollbar { display: none; }
 
-                        .attachment-more-pay-entry {
+                        .attachment-more-pay-entry,
+                        .attachment-more-voice-entry {
                             cursor: pointer;
                             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
                         }
@@ -130,7 +136,8 @@ function createAttachmentSheet(page) {
                             cursor: pointer;
                             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
                         }
-                        .attachment-more-pay-entry:active {
+                        .attachment-more-pay-entry:active,
+                        .attachment-more-voice-entry:active {
                             transform: scale(0.85);
                             opacity: 0.7;
                         }
@@ -168,6 +175,61 @@ function createAttachmentSheet(page) {
                             color: #007aff;
                             font-weight: 600;
                         }
+                        .sheet-stickers-list {
+                            width: 100%;
+                            flex: 1;
+                            min-height: 0;
+                            overflow-y: auto;
+                            padding: 12px 14px 0;
+                            box-sizing: border-box;
+                        }
+                        .sheet-sticker-category-tabs {
+                            width: 100%;
+                            display: flex;
+                            gap: 8px;
+                            overflow-x: auto;
+                            padding: 0 14px 10px;
+                            box-sizing: border-box;
+                            border-bottom: 1px solid #f2f2f7;
+                            flex-shrink: 0;
+                        }
+                        .sheet-sticker-category-tab {
+                            height: 32px;
+                            border: none;
+                            border-radius: 999px;
+                            background: #f7f7fa;
+                            color: #636366;
+                            padding: 0 13px;
+                            font-size: 13px;
+                            font-weight: 700;
+                            white-space: nowrap;
+                            cursor: pointer;
+                            flex-shrink: 0;
+                        }
+                        .sheet-sticker-category-tab.active {
+                            background: #111;
+                            color: #fff;
+                        }
+                        .sheet-sticker-grid {
+                            display: grid;
+                            grid-template-columns: repeat(4, minmax(0, 1fr));
+                            gap: 10px;
+                        }
+                        .sheet-sticker-item {
+                            aspect-ratio: 1;
+                            border: none;
+                            border-radius: 14px;
+                            background: #f7f7fa;
+                            padding: 7px;
+                            cursor: pointer;
+                            overflow: hidden;
+                        }
+                        .sheet-sticker-item img {
+                            width: 100%;
+                            height: 100%;
+                            object-fit: contain;
+                            display: block;
+                        }
                     </style>
                     
                     <div class="sheet-tab-item active" data-tab="gallery">
@@ -182,9 +244,9 @@ function createAttachmentSheet(page) {
                         <i class="fas fa-map-marker-alt sheet-tab-icon"></i>
                         <span class="sheet-tab-text">Location</span>
                     </div>
-                    <div class="sheet-tab-item" data-tab="poll">
-                        <i class="fas fa-chart-bar sheet-tab-icon"></i>
-                        <span class="sheet-tab-text">Poll</span>
+                    <div class="sheet-tab-item" data-tab="stickers">
+                        <i class="fas fa-smile sheet-tab-icon"></i>
+                        <span class="sheet-tab-text">Stickers</span>
                     </div>
                     <div class="sheet-tab-item" data-tab="more">
                         <i class="fas fa-ellipsis-h sheet-tab-icon"></i>
@@ -247,6 +309,20 @@ function createAttachmentSheet(page) {
                     </div>
                 </div>
             </div>
+            <div class="voice-message-form-overlay" style="position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.18); z-index: 21; padding: 20px;">
+                <div class="voice-message-form-card" style="width: 100%; max-width: 348px; border-radius: 30px; background: rgba(255,255,255,0.98); box-shadow: 0 18px 45px rgba(0,0,0,0.16); padding: 18px 16px 16px; box-sizing: border-box; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; font-size:18px; font-weight:800; color:#111; text-align:center; margin-bottom:12px;">
+                        <i class="fas fa-microphone-alt" style="color:#111;"></i>
+                        <span>Voice</span>
+                    </div>
+                    <textarea class="voice-message-transcript-input" placeholder="输入语音内容..." style="width:100%; min-height:112px; max-height:180px; resize:none; border:none; outline:none; border-radius:20px; background:#f7f7fa; padding:13px 14px; box-sizing:border-box; font-size:15px; line-height:1.45; color:#111; font-family:inherit;"></textarea>
+                    <div style="font-size:12px; color:#8e8e93; line-height:1.45; margin:10px 2px 0;">将以语音气泡发送，并把这段文字作为转文字内容给 AI。</div>
+                    <div class="voice-message-form-actions" style="display:flex; gap:8px; margin-top:16px;">
+                        <div class="voice-message-cancel-btn" style="flex:1; height:44px; border-radius:16px; background:#f2f2f7; color:#666; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; cursor:pointer;">取消</div>
+                        <div class="voice-message-submit-btn" style="flex:1; height:44px; border-radius:16px; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; cursor:pointer;">发送</div>
+                    </div>
+                </div>
+            </div>
         `;
         page.appendChild(attachmentSheet);
 
@@ -257,7 +333,14 @@ function createAttachmentSheet(page) {
         const tabItems = attachmentSheet.querySelectorAll('.sheet-tab-item');
         const payEntry = attachmentSheet.querySelector('.attachment-more-pay-entry');
         const regenerateEntry = attachmentSheet.querySelector('.attachment-more-regenerate-entry');
+        const voiceEntry = attachmentSheet.querySelector('.attachment-more-voice-entry');
         const payFormOverlay = attachmentSheet.querySelector('.pay-transfer-form-overlay');
+        const voiceFormOverlay = attachmentSheet.querySelector('.voice-message-form-overlay');
+        const voiceTranscriptInput = attachmentSheet.querySelector('.voice-message-transcript-input');
+        const voiceCancelBtn = attachmentSheet.querySelector('.voice-message-cancel-btn');
+        const voiceSubmitBtn = attachmentSheet.querySelector('.voice-message-submit-btn');
+        const stickersList = attachmentSheet.querySelector('.sheet-stickers-list');
+        const stickerCategoryTabs = attachmentSheet.querySelector('.sheet-sticker-category-tabs');
         const payAmountInput = attachmentSheet.querySelector('.pay-transfer-amount-input');
         const payDescInput = attachmentSheet.querySelector('.pay-transfer-desc-input');
         const payCancelBtn = attachmentSheet.querySelector('.pay-transfer-cancel-btn');
@@ -278,6 +361,110 @@ function createAttachmentSheet(page) {
         const sheetViews = attachmentSheet.querySelectorAll('.sheet-view');
         let currentPayMode = 'transfer';
         let selectedRecipientId = null;
+        let activeStickerCategoryName = '';
+
+        const escapeSheetHtml = (value) => String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const renderSheetStickers = async () => {
+            if (!stickersList || !stickerCategoryTabs) return;
+
+            stickersList.innerHTML = '<div style="text-align:center; color:#8e8e93; padding:28px 0; font-size:13px;">Loading stickers...</div>';
+            stickerCategoryTabs.innerHTML = '';
+
+            try {
+                if (window.imApp?.ensureStickersReady) {
+                    await window.imApp.ensureStickersReady();
+                }
+            } catch (error) {
+                console.error('Failed to load stickers for attachment sheet', error);
+            }
+
+            const categories = (Array.isArray(window.imData?.stickers) ? window.imData.stickers : [])
+                .filter(category => category && Array.isArray(category.items) && category.items.length > 0);
+
+            if (categories.length === 0) {
+                stickersList.innerHTML = '<div style="text-align:center; color:#8e8e93; padding:32px 14px; font-size:13px; line-height:1.45;">No stickers yet. Add stickers from Home first.</div>';
+                return;
+            }
+
+            if (!activeStickerCategoryName || !categories.some(category => category.categoryName === activeStickerCategoryName)) {
+                activeStickerCategoryName = categories[0].categoryName || '';
+            }
+
+            const renderActiveStickerGrid = (category) => {
+                stickersList.innerHTML = '';
+                const grid = document.createElement('div');
+                grid.className = 'sheet-sticker-grid';
+
+                const items = Array.isArray(category?.items) ? category.items : [];
+                if (items.length === 0) {
+                    stickersList.innerHTML = '<div style="text-align:center; color:#8e8e93; padding:32px 14px; font-size:13px;">This category is empty.</div>';
+                    return;
+                }
+
+                items.forEach(sticker => {
+                    if (!sticker || !sticker.url) return;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'sheet-sticker-item';
+                    button.title = sticker.name || '';
+                    button.innerHTML = `<img src="${escapeSheetHtml(sticker.url)}" alt="${escapeSheetHtml(sticker.name || 'Sticker')}">`;
+                    button.addEventListener('click', async () => {
+                        closeSheet();
+                        await window.imChat.sendStickerMessage({
+                            category: category.categoryName || '',
+                            name: sticker.name || 'Sticker',
+                            url: sticker.url
+                        });
+                    });
+                    grid.appendChild(button);
+                });
+
+                stickersList.appendChild(grid);
+            };
+
+            stickerCategoryTabs.innerHTML = '';
+            categories.forEach(category => {
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = `sheet-sticker-category-tab ${category.categoryName === activeStickerCategoryName ? 'active' : ''}`;
+                tab.textContent = category.categoryName || 'Stickers';
+                tab.addEventListener('click', () => {
+                    activeStickerCategoryName = category.categoryName || '';
+                    stickerCategoryTabs.querySelectorAll('.sheet-sticker-category-tab').forEach(item => {
+                        item.classList.toggle('active', item === tab);
+                    });
+                    renderActiveStickerGrid(category);
+                });
+                stickerCategoryTabs.appendChild(tab);
+            });
+
+            const activeCategory = categories.find(category => category.categoryName === activeStickerCategoryName) || categories[0];
+            renderActiveStickerGrid(activeCategory);
+        };
+
+        window.addEventListener('u2:stickers-binding-changed', () => {
+            if (attachmentSheet.style.display === 'flex') {
+                const activeTab = attachmentSheet.querySelector('.sheet-tab-item.active');
+                if (activeTab && activeTab.getAttribute('data-tab') === 'stickers') {
+                    renderSheetStickers();
+                }
+            }
+        });
+
+        window.addEventListener('u2:stickers-data-changed', () => {
+            if (attachmentSheet.style.display === 'flex') {
+                const activeTab = attachmentSheet.querySelector('.sheet-tab-item.active');
+                if (activeTab && activeTab.getAttribute('data-tab') === 'stickers') {
+                    renderSheetStickers();
+                }
+            }
+        });
 
         // Click listener to set active tab and ensure it is fully visible in the container
         tabItems.forEach(item => {
@@ -304,6 +491,9 @@ function createAttachmentSheet(page) {
                             view.style.display = 'grid';
                         } else {
                             view.style.display = 'flex';
+                        }
+                        if (targetTab === 'stickers') {
+                            renderSheetStickers();
                         }
                     } else {
                         view.style.display = 'none';
@@ -441,6 +631,12 @@ function createAttachmentSheet(page) {
             currentPayMode = 'transfer';
         };
 
+        const closeVoiceMessageForm = () => {
+            if (!voiceFormOverlay) return;
+            voiceFormOverlay.style.display = 'none';
+            if (voiceTranscriptInput) voiceTranscriptInput.value = '';
+        };
+
         const renderPayMethodSelection = (requiredAmount, callback) => {
             const sheet = document.getElementById('pay-method-selection-sheet');
             const listEl = document.getElementById('pay-method-selection-list');
@@ -535,16 +731,42 @@ function createAttachmentSheet(page) {
             }, 30);
         };
 
+        const openVoiceMessageForm = () => {
+            if (!voiceFormOverlay) return;
+
+            if (content) content.style.transform = 'translateY(100%)';
+            if (overlay) overlay.style.opacity = '0';
+
+            voiceFormOverlay.style.display = 'flex';
+            if (voiceTranscriptInput) {
+                voiceTranscriptInput.value = '';
+                setTimeout(() => voiceTranscriptInput.focus(), 30);
+            }
+        };
+
         const closeSheet = () => {
             const currentPage = attachmentSheet.parentElement || page;
             const inputContainer = currentPage.querySelector('.ins-chat-input-container');
             if (inputContainer) inputContainer.classList.remove('push-up', 'push-up-more');
             closePayTransferForm();
+            closeVoiceMessageForm();
             overlay.style.opacity = '0';
             content.style.transform = 'translateY(100%)';
             setTimeout(() => {
                 attachmentSheet.style.display = 'none';
             }, 300);
+        };
+
+        const submitVoiceMessage = async () => {
+            const transcript = String(voiceTranscriptInput ? voiceTranscriptInput.value : '').trim();
+            if (!transcript) {
+                if (window.showToast) window.showToast('请输入语音内容');
+                return;
+            }
+
+            closeVoiceMessageForm();
+            closeSheet();
+            await window.imChat.sendVoiceMessage(transcript);
         };
 
         const submitPayTransfer = async () => {
@@ -725,6 +947,12 @@ function createAttachmentSheet(page) {
             });
         }
 
+        if (voiceEntry) {
+            voiceEntry.addEventListener('click', () => {
+                openVoiceMessageForm();
+            });
+        }
+
         if (regenerateEntry) {
             regenerateEntry.addEventListener('click', async () => {
                 if (regenerateEntry.dataset.busy === 'true') return;
@@ -792,6 +1020,35 @@ function createAttachmentSheet(page) {
                     !e.target.closest('.pay-group-recipient-field')
                 ) {
                     setRecipientDropdownOpen(false);
+                }
+            });
+        }
+
+        if (voiceFormOverlay) {
+            voiceFormOverlay.addEventListener('click', (e) => {
+                if (e.target === voiceFormOverlay) {
+                    closeSheet();
+                }
+            });
+        }
+
+        if (voiceCancelBtn) {
+            voiceCancelBtn.addEventListener('click', () => {
+                closeSheet();
+            });
+        }
+
+        if (voiceSubmitBtn) {
+            voiceSubmitBtn.addEventListener('click', async () => {
+                await submitVoiceMessage();
+            });
+        }
+
+        if (voiceTranscriptInput) {
+            voiceTranscriptInput.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    submitVoiceMessage();
                 }
             });
         }
@@ -913,6 +1170,102 @@ async function sendImageMessage(imgUrl, description) {
 
         if (!saved) {
             if (window.showToast) window.showToast('图片消息保存失败');
+            return;
+        }
+
+        if (container) {
+            const appended = window.imChat.appendMessageToContainer
+                ? window.imChat.appendMessageToContainer(friend, container, msgObj, { scroll: true })
+                : false;
+            if (!appended && window.imChat.rerenderChatContainer) {
+                window.imChat.rerenderChatContainer(friend, container, { scroll: true });
+            }
+        }
+    }
+
+async function sendStickerMessage(sticker) {
+        if (!window.imData.currentActiveFriend) return;
+        const friend = window.imData.currentActiveFriend;
+        const pageId = `chat-interface-${friend.id}`;
+        const page = document.getElementById(pageId);
+        if (!page) return;
+        const container = page.querySelector('.ins-chat-messages');
+        const safeSticker = sticker || {};
+        const stickerUrl = String(safeSticker.url || safeSticker.stickerUrl || '').trim();
+        const stickerName = String(safeSticker.name || safeSticker.stickerName || 'Sticker').trim() || 'Sticker';
+        const stickerCategory = String(safeSticker.category || safeSticker.stickerCategory || '').trim();
+        if (!stickerUrl) return;
+
+        const now = Date.now();
+        const readable = stickerCategory
+            ? `用户发了一个表情包：${stickerCategory} / ${stickerName}`
+            : `用户发了一个表情包：${stickerName}`;
+        const msgObj = {
+            id: window.imChat.createMessageId('sticker'),
+            role: 'user',
+            type: 'sticker',
+            content: '[表情包]',
+            text: readable,
+            stickerCategory,
+            stickerName,
+            stickerUrl,
+            timestamp: now
+        };
+
+        const saved = window.imApp.appendFriendMessage
+            ? await window.imApp.appendFriendMessage(friend.id, msgObj, { silent: true })
+            : await commitSheetFriendChange(friend, (targetFriend) => {
+                if (!targetFriend.messages) targetFriend.messages = [];
+                targetFriend.messages.push(msgObj);
+            }, { silent: true });
+
+        if (!saved) {
+            if (window.showToast) window.showToast('表情包消息保存失败');
+            return;
+        }
+
+        if (container) {
+            const appended = window.imChat.appendMessageToContainer
+                ? window.imChat.appendMessageToContainer(friend, container, msgObj, { scroll: true })
+                : false;
+            if (!appended && window.imChat.rerenderChatContainer) {
+                window.imChat.rerenderChatContainer(friend, container, { scroll: true });
+            }
+        }
+    }
+
+async function sendVoiceMessage(transcript) {
+        if (!window.imData.currentActiveFriend) return;
+        const friend = window.imData.currentActiveFriend;
+        const pageId = `chat-interface-${friend.id}`;
+        const page = document.getElementById(pageId);
+        if (!page) return;
+        const container = page.querySelector('.ins-chat-messages');
+        const safeTranscript = String(transcript || '').trim();
+        if (!safeTranscript) return;
+
+        const now = Date.now();
+        const duration = Math.min(18, Math.max(3, Math.ceil(safeTranscript.length / 3)));
+        const msgObj = {
+            id: window.imChat.createMessageId('voice'),
+            role: 'user',
+            type: 'voice_message',
+            content: '[语音消息]',
+            text: safeTranscript,
+            transcript: safeTranscript,
+            duration,
+            timestamp: now
+        };
+
+        const saved = window.imApp.appendFriendMessage
+            ? await window.imApp.appendFriendMessage(friend.id, msgObj, { silent: true })
+            : await commitSheetFriendChange(friend, (targetFriend) => {
+                if (!targetFriend.messages) targetFriend.messages = [];
+                targetFriend.messages.push(msgObj);
+            }, { silent: true });
+
+        if (!saved) {
+            if (window.showToast) window.showToast('语音消息保存失败');
             return;
         }
 
@@ -1057,6 +1410,8 @@ function openAttachmentSheet() {
 
     window.imChat.createAttachmentSheet = createAttachmentSheet;
     window.imChat.sendImageMessage = sendImageMessage;
+    window.imChat.sendStickerMessage = sendStickerMessage;
+    window.imChat.sendVoiceMessage = sendVoiceMessage;
     window.imChat.openAttachmentSheet = openAttachmentSheet;
     window.imChat.showBannerNotification = showBannerNotification;
     window.imChat.hideBannerNotification = hideBannerNotification;

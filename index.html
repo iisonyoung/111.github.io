@@ -165,8 +165,8 @@
                         <span class="app-name">Diary</span>
                     </div>
                     <div class="app-item" style="cursor: pointer;">
-                        <div class="app-icon icon-placeholder" id="app-icon-6" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;"><i class="fas fa-map-location-dot"></i></div>
-                        <span class="app-name">Maps</span>
+                        <div class="app-icon icon-placeholder" id="app-icon-6" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 30px;"><i class="fab fa-app-store-ios"></i></div>
+                        <span class="app-name">AppStore</span>
                     </div>
 
                     <!-- Couple Widget (2x2 = 4 slots) - Automatically takes Row 3 Col 3-4 and Row 4 Col 3-4 -->
@@ -1256,8 +1256,8 @@
                                 <i class="fas fa-chevron-right memory-file-chevron"></i>
                             </div>
                             <div class="memory-file-row" data-memory-location="deleted">
-                                <i class="fas fa-trash-alt memory-file-icon"></i>
-                                <span>最近删除</span>
+                                <i class="fas fa-user-circle memory-file-icon"></i>
+                                <span>社交帐号</span>
                                 <i class="fas fa-chevron-right memory-file-chevron"></i>
                             </div>
                         </div>
@@ -1359,7 +1359,7 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 50px 20px 15px; border-bottom: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: calc(15px + env(safe-area-inset-top, 0px)) 20px 15px; border-bottom: none;">
                         <div id="publish-moment-cancel" style="font-size: 16px; color: #000; cursor: pointer;">取消</div>
                         <div id="publish-moment-submit" style="font-size: 15px; background-color: #f2f2f2; color: #b2b2b2; padding: 6px 12px; border-radius: 4px; font-weight: 500; cursor: pointer; transition: all 0.2s;">发表</div>
                     </div>
@@ -1392,6 +1392,11 @@
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 5px; color: #333; font-size: 15px;">
                                     公开 <i class="fas fa-chevron-right" style="color: #ccc; font-size: 14px;"></i>
+                                </div>
+                            </div>
+                            <div id="publish-moment-ai-all-friends" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 10px; color: #000; font-size: 15px;">
+                                    <i class="fas fa-magic" style="width: 20px; text-align: center;"></i> 让所有好友发朋友圈
                                 </div>
                             </div>
                         </div>

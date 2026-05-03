@@ -7,6 +7,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.imChat = window.imChat || {};
     const imChat = window.imChat;
 
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
 function renderSystemNoticeBubble(msg, friend, container, timestamp = Date.now()) {
         const row = document.createElement('div');
         row.className = 'chat-system-row';
@@ -165,6 +174,14 @@ function renderMessageBubble(msg, friend, container, timestamp = Date.now()) {
         }
         if (msg.type === 'voice_call_record') {
             window.imChat.renderVoiceCallRecordBubble(msg, friend, container, msgTime);
+            return true;
+        }
+        if (msg.type === 'voice_message') {
+            window.imChat.renderVoiceMessageBubble(msg, friend, container, msgTime);
+            return true;
+        }
+        if (msg.type === 'sticker') {
+            window.imChat.renderStickerMessageBubble(msg, friend, container, msgTime);
             return true;
         }
         if (msg.type === 'image') {
@@ -763,8 +780,210 @@ function renderMomentForwardBubble(msg, friend, container, timestamp = Date.now(
         window.imChat.scrollToBottom(container);
     }
 
+function renderVoiceMessageBubble(msg, friend, container, timestamp = Date.now()) {
+        const isUser = msg.role !== 'assistant';
+        const rows = Array.from(container.children).filter(el => !el.classList.contains('chat-timestamp') && !el.classList.contains('typing-row'));
+        const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+        const isGroupMessage = !isUser && friend.type === 'group';
+        const safeSpeaker = isGroupMessage && window.imChat.getSafeGroupSpeaker
+            ? window.imChat.getSafeGroupSpeaker(friend, msg.speaker || msg.senderName)
+            : null;
+        const speakerName = isGroupMessage
+            ? ((safeSpeaker && safeSpeaker.nickname) || msg.speaker || msg.senderName || '群成员')
+            : null;
+        const speakerAvatar = (safeSpeaker && safeSpeaker.avatarUrl) || msg.senderAvatarUrl || null;
+        let hasPrev = false;
+        let sameSpeaker = false;
+
+        if (lastRow) {
+            if (isUser && lastRow.classList.contains('user-row')) {
+                hasPrev = true;
+                lastRow.classList.add('has-next');
+            } else if (!isUser && lastRow.classList.contains('ai-row')) {
+                const prevSpeaker = lastRow.getAttribute('data-speaker') || null;
+                if (isGroupMessage) {
+                    if (prevSpeaker === speakerName) {
+                        hasPrev = true;
+                        sameSpeaker = true;
+                        lastRow.classList.add('has-next');
+                    }
+                } else if (!prevSpeaker) {
+                    hasPrev = true;
+                    sameSpeaker = true;
+                    lastRow.classList.add('has-next');
+                }
+            }
+        }
+
+        const row = document.createElement('div');
+        row.className = `chat-row ${isUser ? 'user-row' : 'ai-row'} ${hasPrev ? 'has-prev' : ''} ${isGroupMessage ? 'group-ai-row' : ''} ${isGroupMessage && sameSpeaker ? 'group-ai-row-continuous' : ''}`;
+        row.setAttribute('data-timestamp', timestamp);
+        row.setAttribute('data-message-id', window.imChat.ensureMessageId(msg, 'voice'));
+        if (speakerName) {
+            row.setAttribute('data-speaker', speakerName);
+        }
+
+        const transcript = String(msg.transcript || msg.text || '').trim();
+        const calculatedDuration = Math.min(18, Math.max(3, Math.ceil(transcript.length / 3)));
+        const duration = Math.min(18, Math.max(3, Number(msg.duration) || calculatedDuration));
+        const safeTranscript = escapeHtml(transcript || '暂无转文字');
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
+        const metaHtml = isUser
+            ? `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`
+            : `<span class="bubble-meta"><span class="bubble-time">${timeStr}</span></span>`;
+
+        const contentHtml = `
+            <button type="button" class="voice-message-bubble-inner" aria-expanded="false">
+                <span class="voice-message-mic"><i class="fas fa-microphone-alt"></i></span>
+                <span class="voice-message-wave" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </span>
+                <span class="voice-message-duration">${duration}s</span>
+            </button>
+            <div class="voice-message-transcript" hidden>${safeTranscript}</div>
+            ${metaHtml}
+        `;
+
+        const bubbleHtml = `<div class="chat-bubble ${isUser ? 'user-bubble' : 'ai-bubble'} voice-message-bubble">${contentHtml}</div>`;
+        let bubbleWrapperHtml = bubbleHtml;
+        if (isGroupMessage) {
+            const avatarInitial = String(speakerName).trim().charAt(0) || '?';
+            const avatarImg = speakerAvatar
+                ? `<img src="${speakerAvatar}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">`
+                : `<div class="chat-avatar-small">${escapeHtml(avatarInitial)}</div>`;
+
+            bubbleWrapperHtml = `
+                <div class="group-ai-bubble-wrap">
+                    ${sameSpeaker ? '' : `<div class="group-ai-speaker-name">${escapeHtml(speakerName)}</div>`}
+                    <div class="group-ai-bubble-row">
+                        <div class="group-ai-avatar-slot">${sameSpeaker ? '<div class="group-ai-avatar-placeholder"></div>' : avatarImg}</div>
+                        ${bubbleHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        row.innerHTML = `
+            <div class="chat-checkbox-wrapper" style="display: ${window.imData.batchSelectMode ? 'flex' : 'none'}; width: 40px; justify-content: center; align-items: flex-end; padding-bottom: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;">
+                <i class="far fa-circle chat-checkbox" data-timestamp="${timestamp}" style="color: #c7c7cc; font-size: 22px;"></i>
+            </div>
+            <div style="flex: 1; display: flex; justify-content: ${isUser ? 'flex-end' : 'flex-start'}; align-items: flex-end; min-width: 0;">
+                ${bubbleWrapperHtml}
+            </div>
+        `;
+
+        const toggle = row.querySelector('.voice-message-bubble-inner');
+        const transcriptEl = row.querySelector('.voice-message-transcript');
+        if (toggle && transcriptEl) {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const shouldExpand = transcriptEl.hidden;
+                transcriptEl.hidden = !shouldExpand;
+                toggle.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+            });
+        }
+
+        container.appendChild(row);
+        window.imChat.scrollToBottom(container);
+    }
+
+function renderStickerMessageBubble(msg, friend, container, timestamp = Date.now()) {
+        const isUser = msg.role !== 'assistant';
+        const rows = Array.from(container.children).filter(el => !el.classList.contains('chat-timestamp') && !el.classList.contains('typing-row'));
+        const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+        const isGroupMessage = !isUser && friend.type === 'group';
+        const safeSpeaker = isGroupMessage && window.imChat.getSafeGroupSpeaker
+            ? window.imChat.getSafeGroupSpeaker(friend, msg.speaker || msg.senderName)
+            : null;
+        const speakerName = isGroupMessage
+            ? ((safeSpeaker && safeSpeaker.nickname) || msg.speaker || msg.senderName || 'Group member')
+            : null;
+        const speakerAvatar = (safeSpeaker && safeSpeaker.avatarUrl) || msg.senderAvatarUrl || null;
+        let hasPrev = false;
+        let sameSpeaker = false;
+
+        if (lastRow) {
+            if (isUser && lastRow.classList.contains('user-row')) {
+                hasPrev = true;
+                lastRow.classList.add('has-next');
+            } else if (!isUser && lastRow.classList.contains('ai-row')) {
+                const prevSpeaker = lastRow.getAttribute('data-speaker') || null;
+                if (isGroupMessage) {
+                    if (prevSpeaker === speakerName) {
+                        hasPrev = true;
+                        sameSpeaker = true;
+                        lastRow.classList.add('has-next');
+                    }
+                } else if (!prevSpeaker) {
+                    hasPrev = true;
+                    sameSpeaker = true;
+                    lastRow.classList.add('has-next');
+                }
+            }
+        }
+
+        const row = document.createElement('div');
+        row.className = `chat-row ${isUser ? 'user-row' : 'ai-row'} ${hasPrev ? 'has-prev' : ''} ${isGroupMessage ? 'group-ai-row' : ''} ${isGroupMessage && sameSpeaker ? 'group-ai-row-continuous' : ''}`;
+        row.setAttribute('data-timestamp', timestamp);
+        row.setAttribute('data-message-id', window.imChat.ensureMessageId(msg, 'sticker'));
+        if (speakerName) {
+            row.setAttribute('data-speaker', speakerName);
+        }
+
+        const stickerUrl = String(msg.stickerUrl || msg.content || '').trim();
+        const stickerName = String(msg.stickerName || msg.text || 'Sticker').trim();
+        const timeStr = typeof window.formatChatBubbleTime === 'function' ? window.formatChatBubbleTime(timestamp) : (() => {
+            const date = new Date(timestamp);
+            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        })();
+        const metaHtml = isUser
+            ? `<span class="bubble-meta sticker-message-meta"><span class="bubble-time">${timeStr}</span><i class="fas fa-check-double bubble-read-icon"></i></span>`
+            : `<span class="bubble-meta sticker-message-meta"><span class="bubble-time">${timeStr}</span></span>`;
+        const stickerHtml = `
+            <div class="sticker-message-wrap" title="${escapeHtml(stickerName)}">
+                <img class="sticker-message-img" src="${escapeHtml(stickerUrl)}" alt="${escapeHtml(stickerName)}">
+                ${metaHtml}
+            </div>
+        `;
+
+        let bubbleWrapperHtml = stickerHtml;
+        if (isGroupMessage) {
+            const avatarInitial = String(speakerName).trim().charAt(0) || '?';
+            const avatarImg = speakerAvatar
+                ? `<img src="${escapeHtml(speakerAvatar)}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">`
+                : `<div class="chat-avatar-small">${escapeHtml(avatarInitial)}</div>`;
+
+            bubbleWrapperHtml = `
+                <div class="group-ai-bubble-wrap sticker-group-wrap">
+                    ${sameSpeaker ? '' : `<div class="group-ai-speaker-name">${escapeHtml(speakerName)}</div>`}
+                    <div class="group-ai-bubble-row">
+                        <div class="group-ai-avatar-slot">${sameSpeaker ? '<div class="group-ai-avatar-placeholder"></div>' : avatarImg}</div>
+                        ${stickerHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        row.innerHTML = `
+            <div class="chat-checkbox-wrapper" style="display: ${window.imData.batchSelectMode ? 'flex' : 'none'}; width: 40px; justify-content: center; align-items: flex-end; padding-bottom: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;">
+                <i class="far fa-circle chat-checkbox" data-timestamp="${timestamp}" style="color: #c7c7cc; font-size: 22px;"></i>
+            </div>
+            <div style="flex: 1; display: flex; justify-content: ${isUser ? 'flex-end' : 'flex-start'}; align-items: flex-end; min-width: 0;">
+                ${bubbleWrapperHtml}
+            </div>
+        `;
+
+        container.appendChild(row);
+        window.imChat.scrollToBottom(container);
+    }
+
     window.imChat.renderSystemNoticeBubble = renderSystemNoticeBubble;
     window.imChat.renderGroupRedPacketBubble = renderGroupRedPacketBubble;
+    window.imChat.renderStickerMessageBubble = renderStickerMessageBubble;
     window.imChat.renderMessageBubble = renderMessageBubble;
     window.imChat.appendMessageToContainer = appendMessageToContainer;
     window.imChat.replaceMessageInContainer = replaceMessageInContainer;
@@ -777,6 +996,7 @@ function renderMomentForwardBubble(msg, friend, container, timestamp = Date.now(
     window.imChat.renderAiBubble = renderAiBubble;
     window.imChat.renderImageBubble = renderImageBubble;
     window.imChat.renderPayTransferBubble = renderPayTransferBubble;
+    window.imChat.renderVoiceMessageBubble = renderVoiceMessageBubble;
     function renderVoiceCallRecordBubble(msg, friend, container, timestamp = Date.now()) {
         const isSystem = msg.role === 'system';
         const isUser = msg.senderId === (window.imData.currentUser ? window.imData.currentUser.id : 'me') || msg.senderId === '__user__' || isSystem;

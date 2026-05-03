@@ -6,7 +6,7 @@
 
 (function() {
     const DB_NAME = 'iiso_app_storage';
-    const DB_VERSION = 2;
+    const DB_VERSION = 3;
     const STORAGE_SCHEMA_VERSION = 3;
     const PERSISTENT_LOCALSTORAGE_EXCLUDE_PREFIXES = ['iiso_auth_'];
 
@@ -507,6 +507,10 @@
             type: safe.type || 'text',
             content: typeof safe.content === 'string' ? safe.content : '',
             text: typeof safe.text === 'string' ? safe.text : '',
+            transcript: typeof safe.transcript === 'string' ? safe.transcript : '',
+            stickerCategory: typeof safe.stickerCategory === 'string' ? safe.stickerCategory : '',
+            stickerName: typeof safe.stickerName === 'string' ? safe.stickerName : '',
+            stickerUrl: typeof safe.stickerUrl === 'string' ? safe.stickerUrl : '',
             translation: typeof safe.translation === 'string' ? safe.translation : '',
             showTranslation: !!safe.showTranslation,
             replyTo: safe.replyTo || null,
@@ -540,6 +544,10 @@
             type: row.type,
             content: row.content,
             text: row.text,
+            transcript: row.transcript,
+            stickerCategory: row.stickerCategory,
+            stickerName: row.stickerName,
+            stickerUrl: row.stickerUrl,
             translation: row.translation,
             showTranslation: row.showTranslation,
             replyTo: row.replyTo,
@@ -669,6 +677,10 @@
         if (lastMessage) {
             if (lastMessage.type === 'image') {
                 previewText = lastMessage.text || '[图片]';
+            } else if (lastMessage.type === 'voice_message') {
+                previewText = `[语音] ${lastMessage.transcript || lastMessage.text || ''}`.trim();
+            } else if (lastMessage.type === 'sticker') {
+                previewText = `[表情] ${lastMessage.stickerName || lastMessage.text || ''}`.trim();
             } else if (lastMessage.type === 'moment_forward') {
                 previewText = '[朋友圈]';
             } else if (lastMessage.type === 'pay_transfer') {
@@ -731,6 +743,7 @@
         meta.lastMessagePreview = messageSummary.lastMessagePreview;
         meta.lastMessageTimestamp = messageSummary.lastMessageTimestamp;
         meta.messageCount = messageSummary.messageCount;
+        meta.unreadCount = Math.max(0, Number(prepared.unreadCount) || 0);
 
         return putRecord(STORES.imFriends, sanitizePersistentValue(meta));
     }
@@ -883,6 +896,7 @@
                 next.lastMessagePreview = typeof next.lastMessagePreview === 'string' ? next.lastMessagePreview : '';
                 next.lastMessageTimestamp = Number(next.lastMessageTimestamp) || 0;
                 next.messageCount = Number(next.messageCount) || 0;
+                next.unreadCount = Math.max(0, Number(next.unreadCount) || 0);
                 return next;
             })
         );
@@ -1049,9 +1063,34 @@
 
     async function deleteMoment(momentId) {
         if (momentId == null) return false;
-        const previousMoment = await getMomentById(momentId);
-        await deleteRecord(STORES.imMoments, momentId);
-        await cleanupRemovedMomentAssets(previousMoment, null);
+        const existingMoments = await getAllRecords(STORES.imMoments);
+        const matchingMoments = existingMoments.filter((moment) => String(moment?.id) === String(momentId));
+        const directMoment = await getMomentById(momentId);
+        const momentsToCleanup = [];
+        const keysToDelete = new Set([momentId]);
+
+        if (directMoment) {
+            momentsToCleanup.push(directMoment);
+            keysToDelete.add(directMoment.id);
+        }
+
+        matchingMoments.forEach((moment) => {
+            if (!moment) return;
+            momentsToCleanup.push(moment);
+            keysToDelete.add(moment.id);
+        });
+
+        for (const key of keysToDelete) {
+            await deleteRecord(STORES.imMoments, key);
+        }
+
+        const cleanedIds = new Set();
+        for (const moment of momentsToCleanup) {
+            const cleanupKey = `${typeof moment.id}:${String(moment.id)}`;
+            if (cleanedIds.has(cleanupKey)) continue;
+            cleanedIds.add(cleanupKey);
+            await cleanupRemovedMomentAssets(moment, null);
+        }
         return true;
     }
 
@@ -1355,6 +1394,18 @@
         if (themeState) {
             themeState.imessageChatCssEnabled = !!themeState.imessageChatCssEnabled;
             themeState.imessageChatCss = typeof themeState.imessageChatCss === 'string' ? themeState.imessageChatCss : '';
+            if (Array.isArray(themeState.apps)) {
+                themeState.apps = themeState.apps.map(app => {
+                    if (!app || typeof app !== 'object') return app;
+                    if (app.id === 'app-icon-6' && (!app.name || app.name === 'Maps')) {
+                        return { ...app, name: 'AppStore' };
+                    }
+                    if (app.id === 'app-icon-8' && app.name === 'Spotify') {
+                        return { ...app, name: 'Loves' };
+                    }
+                    return app;
+                });
+            }
         }
 
         return {
@@ -1407,9 +1458,9 @@
                     { id: 'app-icon-3', name: 'b.stage', icon: null },
                     { id: 'app-icon-4', name: 'X', icon: null },
                     { id: 'app-icon-5', name: 'Diary', icon: null },
-                    { id: 'app-icon-6', name: 'Maps', icon: null },
+                    { id: 'app-icon-6', name: 'AppStore', icon: null },
                     { id: 'app-icon-7', name: 'Netflix', icon: null },
-                    { id: 'app-icon-8', name: 'Spotify', icon: null },
+                    { id: 'app-icon-8', name: 'Loves', icon: null },
                     { id: 'dock-icon-settings', name: '设置', icon: null },
                     { id: 'dock-icon-imessage', name: '信息', icon: null },
                     { id: 'dock-icon-youtube', name: 'YouTube', icon: null }
