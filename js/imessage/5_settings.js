@@ -674,54 +674,84 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         panels.forEach(panel => {
-            panel.classList.toggle('active', panel.id === `chat-settings-${tabName}-panel`);
+            const isActivePanel = panel.id === `chat-settings-${tabName}-panel`;
+            panel.classList.toggle('active', isActivePanel);
+            if (isActivePanel) panel.scrollTop = 0;
         });
-    }
-
-    function ensureChatMemoryPanels() {
-        const memoryPanel = document.getElementById('chat-settings-memory-panel');
-        if (!memoryPanel) return null;
-
-        let sectionsWrap = document.getElementById('chat-memory-sections-wrap');
-        if (!sectionsWrap) {
-            sectionsWrap = document.createElement('div');
-            sectionsWrap.id = 'chat-memory-sections-wrap';
-            sectionsWrap.className = 'chat-memory-sections-wrap';
-            sectionsWrap.innerHTML = `
-                <div class="char-memory-section" id="chat-memory-overview-panel" data-memory-panel="overview">
-                    <div class="chat-memory-section-header" style="margin-bottom: 12px;">总览</div>
-                    <textarea id="chat-memory-overview-input" class="global-textarea" placeholder="记录这个人的整体印象、关系概括、近期变化..."></textarea>
-                </div>
-
-                <div class="char-memory-section" id="chat-memory-longterm-panel" data-memory-panel="longterm">
-                    <div class="chat-memory-section-header" style="margin-bottom: 12px;">长期记忆</div>
-                    <textarea id="chat-memory-longterm-input" class="global-textarea" placeholder="记录长期稳定的重要设定、偏好、关系事实..."></textarea>
-                </div>
-
-                <div class="char-memory-section" id="chat-memory-cherished-panel" data-memory-panel="cherished">
-                    <div class="chat-memory-section-header" style="margin-bottom: 12px;">珍视回忆</div>
-                </div>
-            `;
-            memoryPanel.appendChild(sectionsWrap);
+        
+        if (tabName === 'memory' && window.imData.currentSettingsFriend) {
+            renderChatMemoryOverviewStats(window.imData.currentSettingsFriend);
         }
-
-        return sectionsWrap;
     }
+    
+    function renderChatMemoryOverviewStats(friend) {
+        const statsContainer = document.getElementById('chat-memory-overview-stats');
+        if (!statsContainer) return;
 
-    function setActiveChatMemoryPanel(panelName) {
-        ensureChatMemoryPanels();
+        const normalizedFriend = window.imApp.normalizeFriendData(friend);
+        const memory = normalizedFriend.memory || window.imApp.createDefaultMemory();
+        const messageCount = Array.isArray(normalizedFriend.messages) ? normalizedFriend.messages.length : 0;
+            
+        // Re-calculate tokenCount realistically
+        let tokenCount = 0;
+        let systemContextLen = 0;
+            
+        if (window.getGlobalWorldBookContext) {
+            const sysWorldBook = window.getGlobalWorldBookContext();
+            systemContextLen += (sysWorldBook || '').length;
+        }
+            
+        systemContextLen += (normalizedFriend.persona || '').length;
+        systemContextLen += (userState?.persona || '').length;
+        systemContextLen += (memory.overview || '').length;
+        systemContextLen += (memory.longTerm || '').length;
+        systemContextLen += (memory.cherished || '').length;
+        systemContextLen += (memory.context?.notes || '').length;
+        if (Array.isArray(memory.relationships)) {
+            systemContextLen += memory.relationships.reduce((sum, r) => sum + (r.relation || '').length, 0);
+        }
+        systemContextLen += 800; 
+            
+        let recentMessagesLen = 0;
+        if (window.imApp.buildApiContextMessages) {
+            const contextMsgs = window.imApp.buildApiContextMessages(normalizedFriend);
+            if (Array.isArray(contextMsgs)) {
+                recentMessagesLen = contextMsgs.reduce((sum, msg) => sum + (msg.content || '').length, 0);
+            }
+        }
+            
+        tokenCount = systemContextLen + recentMessagesLen;
+            
+        let firstMsgTime = Date.now();
+        let lastMsgTime = Date.now();
+        if (messageCount > 0) {
+            firstMsgTime = normalizedFriend.messages[0].timestamp || Date.now();
+            lastMsgTime = normalizedFriend.messages[messageCount - 1].timestamp || Date.now();
+        }
+        const days = Math.max(1, Math.ceil((Date.now() - firstMsgTime) / (1000 * 60 * 60 * 24)));
+            
+        const lastTimeStr = window.imApp.formatTime ? window.imApp.formatTime(lastMsgTime) : new Date(lastMsgTime).toLocaleString();
 
-        const cards = document.querySelectorAll('#chat-settings-memory-panel .settings-item');
-        const panels = document.querySelectorAll('#chat-settings-sheet .char-memory-section');
-
-        cards.forEach(card => {
-            const cardPanelName = String(card.id || '').replace(/^chat-memory-/, '').replace(/-btn$/, '');
-            card.classList.toggle('active', cardPanelName === panelName);
-        });
-
-        panels.forEach(panel => {
-            panel.classList.toggle('active', panel.id === `chat-memory-${panelName}-panel`);
-        });
+        statsContainer.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                <div style="background: #f8f8fb; border: 1px solid #ececf2; border-radius: 12px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px;">聊天总数</div>
+                    <div style="font-size: 16px; font-weight: 700; color: #111;">${messageCount}</div>
+                </div>
+                <div style="background: #f8f8fb; border: 1px solid #ececf2; border-radius: 12px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px;">建联天数</div>
+                    <div style="font-size: 16px; font-weight: 700; color: #111;">${days}</div>
+                </div>
+                <div style="background: #f8f8fb; border: 1px solid #ececf2; border-radius: 12px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px;">总Token估算</div>
+                    <div style="font-size: 16px; font-weight: 700; color: #111;">${tokenCount}</div>
+                </div>
+                <div style="background: #f8f8fb; border: 1px solid #ececf2; border-radius: 12px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #8e8e93; margin-bottom: 4px;">最后聊天</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${messageCount > 0 ? lastTimeStr : '无'}</div>
+                </div>
+            </div>
+        `;
     }
 
     function ensureChatMemoryModalUi() {
@@ -1017,9 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        ensureChatMemoryPanels();
         ensureChatMemoryModalUi();
-        bindChatMemoryPanelButtons();
     }
 
     if (editCharPersonaSheet) {
@@ -1265,11 +1293,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const bubbleStyleToggle = document.getElementById('bubble-style-toggle');
-    const bubbleCssContainer = document.getElementById('bubble-css-container');
-    const bubbleStyleHeader = document.getElementById('bubble-style-header');
-    const bubbleCssInput = document.getElementById('bubble-css-input');
-    const applyCssBtn = document.getElementById('apply-css-btn');
     const deleteFriendBtn = document.getElementById('delete-friend-btn');
     const clearHistoryBtn = document.getElementById('clear-history-btn');
     const resetCssBtn = document.getElementById('reset-css-btn');
@@ -1341,113 +1364,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (page) {
             const inputContainer = page.querySelector('.ins-chat-input-container');
             const stickyContainer = page.querySelector('.chat-sticky-container');
-            
+
+            page.style.removeProperty('background-image');
+            page.style.removeProperty('background-color');
+            page.style.removeProperty('background-size');
+            page.style.removeProperty('background-position');
+            if (inputContainer) {
+                inputContainer.style.removeProperty('background');
+                inputContainer.style.removeProperty('border-top');
+            }
+            if (stickyContainer) {
+                stickyContainer.style.removeProperty('background');
+                stickyContainer.style.removeProperty('border-bottom');
+            }
+
             if (friend.chatBg) {
-                page.style.backgroundImage = `url(${friend.chatBg})`;
-                page.style.backgroundSize = 'cover';
-                page.style.backgroundPosition = 'center';
-                
-                if (inputContainer) {
-                    inputContainer.style.background = 'transparent';
-                    inputContainer.style.borderTop = 'none';
-                }
-                if (stickyContainer) {
-                    // Make top bar transparent but keep the blur if you want, or just transparent
-                    stickyContainer.style.background = 'transparent';
-                    stickyContainer.style.borderBottom = 'none';
-                }
+                const escapedBg = String(friend.chatBg).replace(/["\\]/g, '\\$&');
+                page.classList.add('has-chat-bg');
+                page.style.setProperty('--im-chat-bg-image', `url("${escapedBg}")`);
             } else {
-                page.style.backgroundImage = 'none';
-                page.style.backgroundColor = '#ffffff'; 
-                
-                if (inputContainer) {
-                    inputContainer.style.background = ''; // reset to css default
-                    inputContainer.style.borderTop = '';
-                }
-                if (stickyContainer) {
-                    stickyContainer.style.background = friend.type === 'group' ? 'transparent' : '#ffffff';
-                    stickyContainer.style.borderBottom = friend.type === 'group' ? 'none' : '1px solid #f2f2f7';
-                }
+                page.classList.remove('has-chat-bg');
+                page.style.removeProperty('--im-chat-bg-image');
             }
         }
     }
 
-    if (bubbleStyleToggle) {
-        bubbleStyleToggle.addEventListener('change', async (e) => {
-            const updateBubbleCssPanel = (enabled) => {
-                if (enabled) {
-                    bubbleCssContainer.style.display = 'block';
-                    if(bubbleStyleHeader) {
-                        bubbleStyleHeader.style.borderBottomLeftRadius = '0';
-                        bubbleStyleHeader.style.borderBottomRightRadius = '0';
-                    }
-                } else {
-                    bubbleCssContainer.style.display = 'none';
-                    if(bubbleStyleHeader) {
-                        bubbleStyleHeader.style.borderBottomLeftRadius = '20px';
-                        bubbleStyleHeader.style.borderBottomRightRadius = '20px';
-                    }
-                }
-            };
-
-            updateBubbleCssPanel(e.target.checked);
-
-            if (window.imData.currentSettingsFriend) {
-                const previousValue = !!window.imData.currentSettingsFriend.customCssEnabled;
-                const nextValue = e.target.checked;
-                const saved = await commitSettingsFriendChange((targetFriend) => {
-                    targetFriend.customCssEnabled = nextValue;
-                }, { silent: true });
-
-                if (!saved) {
-                    e.target.checked = previousValue;
-                    updateBubbleCssPanel(previousValue);
-                    showToast('气泡样式开关保存失败');
-                    return;
-                }
-
-                applyFriendCss(window.imData.currentSettingsFriend);
-            }
-        });
-    }
-
-    if (applyCssBtn) {
-        applyCssBtn.addEventListener('click', async () => {
-            if (window.imData.currentSettingsFriend) {
-                const nextCss = bubbleCssInput.value;
-                const saved = await commitSettingsFriendChange((targetFriend) => {
-                    targetFriend.customCss = nextCss;
-                }, { silent: true });
-
-                if (!saved) {
-                    showToast('自定义样式保存失败');
-                    return;
-                }
-
-                applyFriendCss(window.imData.currentSettingsFriend);
-                showToast('已应用自定义样式');
-            }
-        });
-    }
-
-    if (resetCssBtn) {
-        resetCssBtn.addEventListener('click', async () => {
-            if (window.imData.currentSettingsFriend) {
-                const saved = await commitSettingsFriendChange((targetFriend) => {
-                    targetFriend.customCss = '';
-                }, { silent: true });
-
-                if (!saved) {
-                    showToast('重置样式失败');
-                    return;
-                }
-
-                bubbleCssInput.value = '';
-                applyFriendCss(window.imData.currentSettingsFriend);
-                showToast('已重置');
-            }
-        });
-    }
 
     if (clearHistoryBtn) {
         clearHistoryBtn.addEventListener('click', () => {
@@ -1699,29 +1640,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function ensureCherishedMemoryUi() {
-        ensureChatMemoryPanels();
-
-        const cherishedPanel = document.getElementById('chat-memory-cherished-panel');
-        if (!cherishedPanel) return null;
-
-        let cardsSection = document.getElementById('chat-memory-cherished-cards-section');
-        if (!cardsSection) {
-            cardsSection = document.createElement('div');
-            cardsSection.id = 'chat-memory-cherished-cards-section';
-            cardsSection.className = 'chat-memory-cherished-cards-section';
-            cardsSection.innerHTML = `
-                <div class="chat-memory-cherished-section-title">珍视回忆卡片</div>
-                <div id="chat-memory-cherished-cards" class="chat-memory-cherished-cards"></div>
-            `;
-
-            const textarea = document.getElementById('chat-memory-cherished-input');
-            if (textarea && textarea.parentNode) {
-                textarea.parentNode.insertBefore(cardsSection, textarea);
-            } else {
-                cherishedPanel.insertBefore(cardsSection, cherishedPanel.firstChild);
-            }
-        }
-
         let detailOverlay = document.getElementById('chat-memory-cherished-detail-overlay');
         if (!detailOverlay) {
             detailOverlay = document.createElement('div');
@@ -1742,7 +1660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="chat-memory-cherished-detail-close" aria-label="关闭" style="position:absolute; right:15px; top:15px; border:none; background:transparent; font-size:18px; color:#8e8e93; cursor:pointer;">
                         <i class="fas fa-times"></i>
                     </button>
-                    <div class="chat-memory-cherished-detail-label" style="font-size:12px; color:#007aff; font-weight:700; margin-bottom:10px;">珍视回忆</div>
+                    <div class="chat-memory-cherished-detail-label" style="font-size:12px; color:#007aff; font-weight:700; margin-bottom:10px;">下载项详情</div>
                     <div id="chat-memory-cherished-detail-title" class="chat-memory-cherished-detail-title" style="font-size:18px; font-weight:700; color:#111; margin-bottom:8px;">标题</div>
                     <div id="chat-memory-cherished-detail-time" class="chat-memory-cherished-detail-time" style="font-size:13px; color:#8e8e93; margin-bottom:16px;"></div>
                     <div id="chat-memory-cherished-detail-content" class="chat-memory-cherished-detail-content" style="font-size:15px; color:#333; line-height:1.6; margin-bottom:16px;"></div>
@@ -1750,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="chat-memory-cherished-detail-thought" class="chat-memory-cherished-detail-thought" style="font-size:14px; color:#666; background:#f2f2f7; padding:12px; border-radius:12px; margin-bottom:16px;"></div>
                     <div style="margin-top: 10px;">
                         <button type="button" id="chat-memory-cherished-detail-delete-btn" style="width: 100%; padding: 12px; border-radius: 12px; background: #ffe5e5; color: #ff3b30; border: none; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <i class="fas fa-trash-alt"></i> 删除这条回忆
+                            <i class="fas fa-trash-alt"></i> 删除这条下载项
                         </button>
                     </div>
                 </div>
@@ -1778,7 +1696,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const entryId = deleteBtn.getAttribute('data-entry-id');
                     if (!entryId) return;
 
-                    const friend = window.imData.currentSettingsFriend;
+                    // 从当前所有可能正在查看的上下文里获取 Friend
+                    let friend = window.imData.currentSettingsFriend;
+                    if (!friend) {
+                        // 回退方案：通过 currentActiveFriend (如果从 core.js 里下载项面板触发)
+                        // 在 core 里渲染下载项时会去查当前选中的 memory friend
+                        // 但为了安全，我们可能需要从 DOM 层反推当前的 friend
+                        const currentMemoryFriendId = document.querySelector('.memory-friend-story-item.active')?.dataset?.friendId;
+                        if (currentMemoryFriendId) {
+                            friend = window.imData.friends.find(f => String(f.id) === String(currentMemoryFriendId));
+                        }
+                    }
+
                     if (!friend) return;
 
                     let newCherishedText = '';
@@ -1803,16 +1732,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, { silent: true });
 
                     if (saved) {
-                        if (window.showToast) window.showToast('已删除珍视回忆');
+                        if (window.showToast) window.showToast('已删除下载项');
                         hideCherishedMemoryDetail();
                         const latestFriend = window.imData.friends.find(f => String(f.id) === String(friend.id)) || friend;
-                        if (window.imApp.renderCherishedMemoryCards) {
-                            window.imApp.renderCherishedMemoryCards(latestFriend);
+                        
+                        // Update memory location sheet (Downloads) if it's open
+                        const memoryLocationSheet = document.getElementById('memory-location-sheet');
+                        if (memoryLocationSheet && memoryLocationSheet.style.transform === 'translateY(0px)') {
+                            const memoryLocationSheetContent = document.getElementById('memory-location-sheet-content');
+                            if (memoryLocationSheetContent && memoryLocationSheetContent.innerHTML.includes('下载项')) {
+                                // re-render downloads
+                                const cherishedEntries = Array.isArray(latestFriend.memory?.cherishedEntries) ? latestFriend.memory.cherishedEntries : [];
+                                
+                                if (cherishedEntries.length === 0) {
+                                    memoryLocationSheetContent.innerHTML = `
+                                        <div class="memory-sheet-title">下载项</div>
+                                        <div class="memory-short-list">
+                                            <div class="memory-short-empty">暂无下载项</div>
+                                        </div>
+                                    `;
+                                } else {
+                                    memoryLocationSheetContent.innerHTML = `
+                                        <div class="memory-sheet-title">下载项</div>
+                                        <div class="chat-memory-modal-cherished-list" style="padding: 0 16px;">
+                                            ${cherishedEntries.slice().reverse().map(e => `
+                                                <button type="button" class="chat-memory-modal-cherished-card" data-entry-id="${e.id}">
+                                                    <div class="chat-memory-modal-cherished-card-title">${String(e.title || '下载项').replace(/</g, '<').replace(/>/g, '>')}</div>
+                                                    <div class="chat-memory-modal-cherished-card-time">${String(e.createdAt || '点击查看详情').replace(/</g, '<').replace(/>/g, '>')}</div>
+                                                </button>
+                                            `).join('')}
+                                        </div>
+                                    `;
+                                    
+                                    memoryLocationSheetContent.querySelectorAll('.chat-memory-modal-cherished-card').forEach(btn => {
+                                        btn.addEventListener('click', () => {
+                                            const clickedId = btn.getAttribute('data-entry-id');
+                                            const target = cherishedEntries.find(ent => String(ent.id) === String(clickedId));
+                                            if (target) showCherishedMemoryDetail(target);
+                                        });
+                                    });
+                                }
+                            }
                         }
-                        const overlayModal = document.getElementById('chat-memory-modal-overlay');
-                        if (overlayModal && overlayModal.classList.contains('active')) {
-                            if (window.imApp.showChatMemoryModal) window.imApp.showChatMemoryModal('cherished', latestFriend);
-                        }
+                        
                     } else {
                         if (window.showToast) window.showToast('删除失败');
                     }
@@ -1821,14 +1783,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            panel: cherishedPanel,
-            cardsSection,
-            cardsContainer: document.getElementById('chat-memory-cherished-cards'),
             detailOverlay
         };
     }
 
     function showCherishedMemoryDetail(entry) {
+        ensureCherishedMemoryUi();
         const overlay = document.getElementById('chat-memory-cherished-detail-overlay');
         if (!overlay || !entry) return;
 
@@ -1839,7 +1799,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const thoughtEl = document.getElementById('chat-memory-cherished-detail-thought');
         const deleteBtn = document.getElementById('chat-memory-cherished-detail-delete-btn');
 
-        if (titleEl) titleEl.textContent = entry.title || '珍视回忆';
+        if (titleEl) titleEl.textContent = entry.title || '下载项';
         if (timeEl) timeEl.textContent = entry.createdAt || '';
         if (contentEl) contentEl.textContent = entry.content || '';
         if (reasonEl) {
@@ -1874,47 +1834,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCherishedMemoryCards(friend) {
-        const ui = ensureCherishedMemoryUi();
-        if (!ui || !ui.cardsContainer) return;
-
-        const normalizedFriend = window.imApp.normalizeFriendData(friend || {});
-        const entries = Array.isArray(normalizedFriend.memory?.cherishedEntries)
-            ? normalizedFriend.memory.cherishedEntries
-            : [];
-
-        if (entries.length === 0) {
-            ui.cardsContainer.innerHTML = `
-                <div class="chat-memory-cherished-empty">
-                    暂无珍视回忆。
-                </div>
-            `;
-            return;
-        }
-
-        ui.cardsContainer.innerHTML = entries.map((entry) => `
-            <button type="button" class="chat-memory-cherished-card" data-entry-id="${entry.id}">
-                <div class="chat-memory-cherished-card-title">${entry.title || '珍视回忆'}</div>
-                <div class="chat-memory-cherished-card-time">${entry.createdAt || '点击查看详情'}</div>
-            </button>
-        `).join('');
-
-        const cardButtons = ui.cardsContainer.querySelectorAll('.chat-memory-cherished-card');
-        cardButtons.forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const entryId = btn.getAttribute('data-entry-id') || '';
-                const latestFriend = window.imData.currentSettingsFriend
-                    && String(window.imData.currentSettingsFriend.id) === String(normalizedFriend.id)
-                    ? window.imData.currentSettingsFriend
-                    : normalizedFriend;
-                const latestEntries = Array.isArray(latestFriend.memory?.cherishedEntries)
-                    ? latestFriend.memory.cherishedEntries
-                    : [];
-                const targetEntry = latestEntries.find((entry) => String(entry.id) === String(entryId));
-                if (targetEntry) {
-                    showCherishedMemoryDetail(targetEntry);
-                }
-            });
-        });
+        // Obsolete, replaced by generic downloads panel rendering in 2_core.js
+        return;
     }
 
     async function saveChatSettingsMemory(friend, options = {}) {
@@ -1925,7 +1846,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const chatMemoryContextEnabled = document.getElementById('chat-memory-context-enabled-toggle');
         const chatMemoryContextLimit = document.getElementById('chat-memory-context-limit-input');
         const chatMemoryCherishedInput = document.getElementById('chat-memory-cherished-input');
-        const chatMemoryScheduleEnabled = document.getElementById('chat-memory-schedule-enabled-toggle');
         const chatMemoryScheduleSleep = document.getElementById('chat-memory-schedule-sleep-input');
         const chatMemoryScheduleWake = document.getElementById('chat-memory-schedule-wake-input');
 
@@ -1947,9 +1867,9 @@ document.addEventListener('DOMContentLoaded', () => {
             shortTermEntries: Array.isArray(friend.memory?.shortTermEntries) ? friend.memory.shortTermEntries : [],
             cherished: chatMemoryCherishedInput ? chatMemoryCherishedInput.value : (friend.memory?.cherished || ''),
             schedule: {
-                enabled: chatMemoryScheduleEnabled ? chatMemoryScheduleEnabled.checked : false,
-                sleepTime: chatMemoryScheduleSleep ? chatMemoryScheduleSleep.value : '23:00',
-                wakeTime: chatMemoryScheduleWake ? chatMemoryScheduleWake.value : '07:00'
+                enabled: false,
+                sleepTime: chatMemoryScheduleSleep ? chatMemoryScheduleSleep.value : (friend.memory?.schedule?.sleepTime || '23:00'),
+                wakeTime: chatMemoryScheduleWake ? chatMemoryScheduleWake.value : (friend.memory?.schedule?.wakeTime || '07:00')
             },
             relationships: Array.isArray(friend.memory?.relationships) ? friend.memory.relationships : []
         };
@@ -1979,7 +1899,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'chat-memory-context-enabled-toggle',
             'chat-memory-context-limit-input',
             'chat-memory-cherished-input',
-            'chat-memory-schedule-enabled-toggle',
             'chat-memory-schedule-sleep-input',
             'chat-memory-schedule-wake-input'
         ];
@@ -2021,31 +1940,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             el.dataset.chatMemoryBound = 'true';
-        });
-    }
-
-    function syncChatScheduleCollapse(enabled) {
-        const scheduleDetails = document.getElementById('chat-memory-schedule-details');
-        const scheduleHeader = document.getElementById('schedule-header');
-        if (scheduleDetails && scheduleHeader) {
-            if (enabled) {
-                scheduleDetails.style.display = 'flex';
-                scheduleHeader.style.borderBottom = 'none';
-                scheduleHeader.style.borderBottomLeftRadius = '0';
-                scheduleHeader.style.borderBottomRightRadius = '0';
-            } else {
-                scheduleDetails.style.display = 'none';
-                scheduleHeader.style.borderBottom = 'none';
-                scheduleHeader.style.borderBottomLeftRadius = '20px';
-                scheduleHeader.style.borderBottomRightRadius = '20px';
-            }
-        }
-    }
-
-    const scheduleToggleEl = document.getElementById('chat-memory-schedule-enabled-toggle');
-    if (scheduleToggleEl) {
-        scheduleToggleEl.addEventListener('change', (e) => {
-            syncChatScheduleCollapse(e.target.checked);
         });
     }
 
@@ -2149,9 +2043,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const parsed = JSON.parse(cleanText);
             const summaryPayload = parsed.summary && typeof parsed.summary === 'object' ? parsed.summary : parsed;
-            const memoryPoints = Array.isArray(summaryPayload.memoryPoints)
-                ? summaryPayload.memoryPoints.join('\n')
-                : (summaryPayload.memoryPoints || summaryPayload['记忆点'] || '');
+            
+            let memoryPointsData = summaryPayload.memoryPoints || summaryPayload['记忆点'] || '';
+            let memoryPoints = '';
+            if (Array.isArray(memoryPointsData)) {
+                memoryPoints = memoryPointsData.join('，');
+            } else if (typeof memoryPointsData === 'object' && memoryPointsData !== null) {
+                memoryPoints = Object.entries(memoryPointsData).map(([k, v]) => `${k}:${v}`).join('，');
+            } else {
+                memoryPoints = String(memoryPointsData);
+            }
+
             return {
                 activatedEntryIds: Array.isArray(parsed.activatedEntryIds) ? parsed.activatedEntryIds.map(String) : [],
                 title: summaryPayload.title || summaryPayload['标题'] || '对话总结',
@@ -2205,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dialogueText = sourceMessages.map(msg => formatSummarySourceMessage(msg, friend)).join('\n');
         const existingSummariesText = formatExistingSummaryEntries(friend);
 
-        const prompt = `查看已有的总结，将与本次需要总结的对话的内容相关的记忆点的记忆条目激活（记忆程度改为高）。\n\n已有短期记忆总结：\n${existingSummariesText}\n\n你是${charName}，请站在${charName}的第一人称视角，将以下${sourceMessages.length}条对话进行一次记忆总结，整合精炼成一件完整的事。\n\n当前真实总结时间：${nowString}\nUser 名称：${userName}\n\n必须只输出 JSON，不要 markdown，不要解释。JSON 字段如下：\n{\n  "activatedEntryIds": ["与本次对话相关、需要激活的已有记忆ID，没有则为空数组"],\n  "summary": {\n    "title": "10字内，事件名称",\n    "time": "真实时间，精确到总结时的年月日时",\n    "event": "20-50字，内容为一件完整的事",\n    "memoryPoints": "必须包含情绪/声音/画面/气味/环境五个感官记忆，可适当加1-2个其他记忆点",\n    "degree": "高"\n  }\n}\n\nsummary.degree 只可输出“高”。activatedEntryIds 只能使用已有短期记忆总结中的 ID。\n\n对话：\n${dialogueText}\n\n查看已有的总结，将所有记忆程度超过真实时间1天的高改成中，超过7天的改成低，超过30天的改成遗忘。`;
+        const prompt = `查看已有的总结，将与本次需要总结的对话的内容相关的记忆点的记忆条目激活（记忆程度改为高）。\n\n已有短期记忆总结：\n${existingSummariesText}\n\n你是${charName}，请站在${charName}的第一人称视角，将以下${sourceMessages.length}条对话进行一次记忆总结，整合精炼成一件完整的事。\n\n当前真实总结时间：${nowString}\nUser 名称：${userName}\n\n必须只输出 JSON，不要 markdown，不要解释。JSON 字段如下：\n{\n  "activatedEntryIds": ["与本次对话相关、需要激活的已有记忆ID，没有则为空数组"],\n  "summary": {\n    "title": "10字内，事件名称",\n    "time": "真实时间，精确到总结时的年月日时",\n    "event": "20-50字，内容为一件完整的事",\n    "memoryPoints": "请输出纯文本字符串格式，必须包含情绪/声音/画面/气味/环境五个感官记忆，每个感官不超过10字，最好用一个词形容",\n    "degree": "高"\n  }\n}\n\nsummary.degree 只可输出“高”。activatedEntryIds 只能使用已有短期记忆总结中的 ID。\n\n对话：\n${dialogueText}\n\n查看已有的总结，将所有记忆程度超过真实时间1天的高改成中，超过7天的改成低，超过30天的改成遗忘。`;
 
         const endpoint = normalizeSummaryApiEndpoint(currentApiConfig);
         const response = await fetch(endpoint, {
@@ -2310,7 +2212,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function initChatSettingsForFriend(friend) {
         window.imData.currentSettingsFriend = friend;
         friend.memory = window.imApp.normalizeFriendData(friend).memory;
-        ensureChatMemoryPanels();
         isRelationshipPickerVisible = false;
         tempRelationshipDrafts = (friend.memory.relationships || []).map(rel => ({
             npcId: String(rel.npcId),
@@ -2318,41 +2219,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         initChatSettingsInteractions();
         setActiveChatSettingsTab('info');
-        syncChatScheduleCollapse(friend.memory.schedule ? !!friend.memory.schedule.enabled : false);
 
-        if (bubbleStyleToggle) {
-            const bubbleStyleEnabled = !!friend.customCssEnabled;
-            bubbleStyleToggle.checked = bubbleStyleEnabled;
-            if (bubbleCssContainer) {
-                bubbleCssContainer.style.display = bubbleStyleEnabled ? 'block' : 'none';
-            }
-            if (bubbleStyleHeader) {
-                bubbleStyleHeader.style.borderBottomLeftRadius = bubbleStyleEnabled ? '0' : '20px';
-                bubbleStyleHeader.style.borderBottomRightRadius = bubbleStyleEnabled ? '0' : '20px';
-            }
-        }
-        if (bubbleCssInput) {
-            bubbleCssInput.value = friend.customCss || '';
-        }
 
         const chatMemoryOverviewInput = document.getElementById('chat-memory-overview-input');
         const chatMemoryContextEnabled = document.getElementById('chat-memory-context-enabled-toggle');
         const chatMemoryContextLimit = document.getElementById('chat-memory-context-limit-input');
         const chatMemoryCherishedInput = document.getElementById('chat-memory-cherished-input');
-        const chatMemoryScheduleEnabled = document.getElementById('chat-memory-schedule-enabled-toggle');
         const chatMemoryScheduleSleep = document.getElementById('chat-memory-schedule-sleep-input');
         const chatMemoryScheduleWake = document.getElementById('chat-memory-schedule-wake-input');
 
         if (chatMemoryOverviewInput) chatMemoryOverviewInput.value = friend.memory.overview || '';
         if (chatMemoryContextEnabled) chatMemoryContextEnabled.checked = typeof friend.memory.context.enabled === 'boolean' ? friend.memory.context.enabled : true;
         if (chatMemoryContextLimit) chatMemoryContextLimit.value = friend.memory.context.limit || 80;
-        if (chatMemoryCherishedInput) chatMemoryCherishedInput.value = friend.memory.cherished || '';
-        if (chatMemoryScheduleEnabled) chatMemoryScheduleEnabled.checked = friend.memory.schedule ? !!friend.memory.schedule.enabled : false;
         if (chatMemoryScheduleSleep) chatMemoryScheduleSleep.value = friend.memory.schedule ? (friend.memory.schedule.sleepTime || '23:00') : '23:00';
         if (chatMemoryScheduleWake) chatMemoryScheduleWake.value = friend.memory.schedule ? (friend.memory.schedule.wakeTime || '07:00') : '07:00';
 
         bindChatSettingsMemoryPersistence(friend);
-        renderCherishedMemoryCards(friend);
         updateChatBindIdLabel(friend);
 
         const tsToggle = document.getElementById('timestamp-toggle');
@@ -2439,18 +2321,35 @@ document.addEventListener('DOMContentLoaded', () => {
             document.head.appendChild(styleTag);
         }
 
+        let combinedCss = '';
+
+        // 气泡 CSS
         if (friend.customCssEnabled && friend.customCss) {
-            const prefix = `#chat-interface-${friend.id} `;
-            let css = friend.customCss.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/ig, prefix + '$1$2');
-            styleTag.innerHTML = css;
-        } else {
-            styleTag.innerHTML = '';
+            const prefix = `#chat-interface-${friend.id}`;
+            combinedCss += window.imApp.scopeUserCss
+                ? window.imApp.scopeUserCss(friend.customCss, prefix)
+                : friend.customCss.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/ig, `${prefix} ` + '$1$2');
+            combinedCss += '\n';
         }
+        
+        // Status CSS
+        if (friend.statusCssEnabled && friend.statusCss) {
+            const prefix = `#chat-interface-${friend.id}`;
+            combinedCss += window.imApp.scopeUserCss
+                ? window.imApp.scopeUserCss(friend.statusCss, prefix)
+                : friend.statusCss.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/ig, `${prefix} ` + '$1$2');
+            combinedCss += '\n';
+        }
+
+        styleTag.textContent = combinedCss;
     }
     
     function applyAllSavedCss() {
         if(window.imData.friends) {
             window.imData.friends.forEach(f => applyFriendCss(f));
+        }
+        if (window.imApp.applyGlobalChatCss) {
+            window.imApp.applyGlobalChatCss(window.u2ThemeState || {});
         }
     }
     

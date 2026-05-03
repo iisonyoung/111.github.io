@@ -131,7 +131,7 @@
             { id: 'app-icon-4', name: 'X', icon: null },
             { id: 'app-icon-5', name: 'Diary', icon: null },
             { id: 'app-icon-6', name: 'Maps', icon: null },
-            { id: 'app-icon-7', name: 'AO3', icon: null },
+            { id: 'app-icon-7', name: 'Netflix', icon: null },
             { id: 'app-icon-8', name: 'Loves', icon: null },
             { id: 'dock-icon-settings', name: '设置', icon: null },
             { id: 'dock-icon-imessage', name: '信息', icon: null },
@@ -143,8 +143,11 @@
         fontCssName: '',
         fontSize: 16,
         fontSources: { woff2: '', woff: '', ttf: '' },
-        savedFontPresets: []
+        savedFontPresets: [],
+        imessageChatCssEnabled: false,
+        imessageChatCss: ''
     };
+    window.u2ThemeState = themeState;
     
     document.addEventListener('DOMContentLoaded', () => {
         // ==========================================
@@ -184,6 +187,7 @@
                 }
                 themeState = { ...themeState, ...savedThemeState };
             }
+            window.u2ThemeState = themeState;
             
             // Apply loaded theme state immediately
             applySavedTheme();
@@ -669,27 +673,244 @@
         // THEME CONFIGURATION LOGIC
         // ==========================================
         const themeConfigBtn = document.getElementById('theme-config-btn');
+        const imessageThemesBtn = document.getElementById('imessage-themes-btn');
         const themeConfigSheet = document.getElementById('theme-config-sheet');
-        
+        const desktopThemeConfigSheet = document.getElementById('desktop-theme-config-sheet');
+
         function applySavedTheme() {
+            window.u2ThemeState = themeState;
             applyThemeBackground(themeState);
             applyThemeFont(themeState);
             applyThemeAppIcons(themeState);
+            if (window.imApp && window.imApp.applyGlobalChatCss) {
+                window.imApp.applyGlobalChatCss(themeState);
+            }
+        }
+        
+        function openDesktopThemeConfig() {
+            ensureThemeFontStateShape();
+            const themeBgUrlInput = document.getElementById('theme-bg-url-input');
+            if (themeBgUrlInput) themeBgUrlInput.value = themeState.bgUrl || '';
+            syncThemeFontInputsFromState();
+            renderThemeFontPresetLists();
+            renderThemeFontPreview();
+            renderThemeAppList();
+            openView(desktopThemeConfigSheet);
         }
 
-        if (themeConfigBtn && themeConfigSheet) {
+        function openImessageThemeConfig() {
+            const bubbleCssInput = document.getElementById('theme-bubble-css-input');
+            if (bubbleCssInput) bubbleCssInput.value = window.imData?.currentSettingsFriend?.customCss || '';
+
+            const chatCssInput = document.getElementById('theme-chat-css-input');
+            if (chatCssInput) chatCssInput.value = themeState.imessageChatCss || '';
+
+            const statusCssInput = document.getElementById('theme-status-css-input');
+            if (statusCssInput) statusCssInput.value = window.imData?.currentSettingsFriend?.statusCss || '';
+
+            openView(themeConfigSheet);
+        }
+
+        if (themeConfigBtn && desktopThemeConfigSheet) {
             themeConfigBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                ensureThemeFontStateShape();
-                const themeBgUrlInput = document.getElementById('theme-bg-url-input');
-                if (themeBgUrlInput) themeBgUrlInput.value = themeState.bgUrl || '';
-                syncThemeFontInputsFromState();
-                renderThemeFontPresetLists();
-                renderThemeFontPreview();
-                renderThemeAppList();
-                openView(themeConfigSheet);
+                openDesktopThemeConfig();
             });
         }
+        
+        if (imessageThemesBtn && themeConfigSheet) {
+            imessageThemesBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openImessageThemeConfig();
+            });
+        }
+
+        // Theme Tabs Logic
+        const themeTabs = document.querySelectorAll('.theme-tab');
+        const themeTabContents = document.querySelectorAll('.theme-tab-content');
+        
+        themeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetId = tab.getAttribute('data-target');
+                themeTabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.style.color = '#8e8e93';
+                });
+                tab.classList.add('active');
+                tab.style.color = 'var(--blue-color)';
+                
+                themeTabContents.forEach(content => {
+                    if (content.id === targetId) {
+                        content.style.display = 'block';
+                    } else {
+                        content.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        const themeBubbleCssInput = document.getElementById('theme-bubble-css-input');
+        const themeBubbleClearBtn = document.getElementById('theme-bubble-clear-btn');
+        const themeBubbleApplyBtn = document.getElementById('theme-bubble-apply-btn');
+        const themeBubbleSaveBtn = document.getElementById('theme-bubble-save-btn');
+        const themeBubbleListBtn = document.getElementById('theme-bubble-list-btn');
+        
+        const themeChatCssInput = document.getElementById('theme-chat-css-input');
+        const themeChatClearBtn = document.getElementById('theme-chat-clear-btn');
+        const themeChatApplyBtn = document.getElementById('theme-chat-apply-btn');
+        const themeChatSaveBtn = document.getElementById('theme-chat-save-btn');
+        const themeChatListBtn = document.getElementById('theme-chat-list-btn');
+        
+        const themeStatusCssInput = document.getElementById('theme-status-css-input');
+        const themeStatusClearBtn = document.getElementById('theme-status-clear-btn');
+        const themeStatusApplyBtn = document.getElementById('theme-status-apply-btn');
+        const themeStatusSaveBtn = document.getElementById('theme-status-save-btn');
+        const themeStatusListBtn = document.getElementById('theme-status-list-btn');
+
+        // Apply Bubble CSS
+        if (themeBubbleApplyBtn) {
+            themeBubbleApplyBtn.addEventListener('click', async () => {
+                if (window.imData && window.imData.currentSettingsFriend) {
+                    const friend = window.imData.currentSettingsFriend;
+                    const nextCss = themeBubbleCssInput ? themeBubbleCssInput.value : '';
+                    if (window.imApp && window.imApp.commitScopedFriendChange) {
+                        const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                            targetFriend.customCss = nextCss;
+                            targetFriend.customCssEnabled = true;
+                        }, { silent: true, syncSettings: true });
+                        
+                        if (saved) {
+                            if (window.imApp.applyFriendCss) window.imApp.applyFriendCss(window.imData.currentSettingsFriend);
+                            showToast('已应用气泡样式');
+                        } else {
+                            showToast('应用气泡样式失败');
+                        }
+                    }
+                } else {
+                    showToast('请先选择一个朋友');
+                }
+            });
+        }
+        
+        // Clear Bubble CSS
+        if (themeBubbleClearBtn) {
+            themeBubbleClearBtn.addEventListener('click', async () => {
+                 if (window.imData && window.imData.currentSettingsFriend) {
+                    const friend = window.imData.currentSettingsFriend;
+                    if (window.imApp && window.imApp.commitScopedFriendChange) {
+                        const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                            targetFriend.customCss = '';
+                            targetFriend.customCssEnabled = false;
+                        }, { silent: true, syncSettings: true });
+                        
+                        if (saved) {
+                            if (themeBubbleCssInput) themeBubbleCssInput.value = '';
+                            if (window.imApp.applyFriendCss) window.imApp.applyFriendCss(window.imData.currentSettingsFriend);
+                            showToast('已清空气泡样式');
+                        } else {
+                            showToast('清空气泡样式失败');
+                        }
+                    }
+                } else {
+                    showToast('请先选择一个朋友');
+                }
+            });
+        }
+        
+        // Apply Chat CSS
+        if (themeChatApplyBtn) {
+            themeChatApplyBtn.addEventListener('click', () => {
+                themeState.imessageChatCss = themeChatCssInput ? themeChatCssInput.value : '';
+                themeState.imessageChatCssEnabled = true;
+                window.u2ThemeState = themeState;
+                if (window.imApp && window.imApp.applyGlobalChatCss) {
+                    window.imApp.applyGlobalChatCss(themeState);
+                }
+                saveGlobalData();
+                showToast('Chat CSS applied');
+            });
+        }
+        
+        // Clear Chat CSS
+        if (themeChatClearBtn) {
+            themeChatClearBtn.addEventListener('click', () => {
+                themeState.imessageChatCss = '';
+                themeState.imessageChatCssEnabled = false;
+                window.u2ThemeState = themeState;
+                if (themeChatCssInput) themeChatCssInput.value = '';
+                if (window.imApp && window.imApp.applyGlobalChatCss) {
+                    window.imApp.applyGlobalChatCss(themeState);
+                }
+                saveGlobalData();
+                showToast('Chat CSS cleared');
+            });
+        }
+
+        // Apply Status CSS
+        if (themeStatusApplyBtn) {
+            themeStatusApplyBtn.addEventListener('click', async () => {
+                if (window.imData && window.imData.currentSettingsFriend) {
+                    const friend = window.imData.currentSettingsFriend;
+                    const nextCss = themeStatusCssInput ? themeStatusCssInput.value : '';
+                    if (window.imApp && window.imApp.commitScopedFriendChange) {
+                        const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                            targetFriend.statusCss = nextCss;
+                            targetFriend.statusCssEnabled = true;
+                        }, { silent: true, syncSettings: true });
+                        
+                        if (saved) {
+                            if (window.imApp.applyFriendCss) window.imApp.applyFriendCss(window.imData.currentSettingsFriend);
+                            showToast('已应用状态栏 CSS');
+                        } else {
+                            showToast('应用状态栏 CSS 失败');
+                        }
+                    }
+                } else {
+                    showToast('请先选择一个朋友');
+                }
+            });
+        }
+        
+        // Clear Status CSS
+        if (themeStatusClearBtn) {
+            themeStatusClearBtn.addEventListener('click', async () => {
+                 if (window.imData && window.imData.currentSettingsFriend) {
+                    const friend = window.imData.currentSettingsFriend;
+                    if (window.imApp && window.imApp.commitScopedFriendChange) {
+                        const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                            targetFriend.statusCss = '';
+                            targetFriend.statusCssEnabled = false;
+                        }, { silent: true, syncSettings: true });
+                        
+                        if (saved) {
+                            if (themeStatusCssInput) themeStatusCssInput.value = '';
+                            if (window.imApp.applyFriendCss) window.imApp.applyFriendCss(window.imData.currentSettingsFriend);
+                            showToast('已清空状态栏 CSS');
+                        } else {
+                            showToast('清空状态栏 CSS 失败');
+                        }
+                    }
+                } else {
+                    showToast('请先选择一个朋友');
+                }
+            });
+        }
+
+        // Placeholder functionality for other buttons
+        const handlePlaceholderBtn = (btn, actionName) => {
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    showToast(`${actionName}功能开发中`);
+                });
+            }
+        };
+        
+        handlePlaceholderBtn(themeBubbleSaveBtn, '存为预设');
+        handlePlaceholderBtn(themeBubbleListBtn, '预设列表');
+        handlePlaceholderBtn(themeChatSaveBtn, '存为Chat预设');
+        handlePlaceholderBtn(themeChatListBtn, 'Chat预设列表');
+        handlePlaceholderBtn(themeStatusSaveBtn, '存为状态栏预设');
+        handlePlaceholderBtn(themeStatusListBtn, '状态栏预设列表');
         
         // Theme Background
         const themeBgUploadBtn = document.getElementById('theme-bg-upload-btn');
@@ -933,10 +1154,14 @@
                     iconDiv.style.color = '#1c1c1e';
                     ensureIconElement('fas fa-map-location-dot', 'color: #1c1c1e; font-size: 28px; filter: none;');
                 } else if (app.id === 'app-icon-7') {
-                    iconDiv.style.background = '#ffffff';
-                    iconDiv.style.color = '#111111';
-                    iconDiv.style.border = '1px solid #d9d9d9';
-                    ensureIconElement('fas fa-feather-pointed', 'color: #9d1d1d; font-size: 28px;');
+                    iconDiv.style.background = '#000000';
+                    iconDiv.style.color = '#E50914';
+                    iconDiv.style.border = '1px solid #1c1c1e';
+                    iconDiv.style.fontSize = '32px';
+                    iconDiv.style.fontWeight = '900';
+                    iconDiv.style.fontFamily = 'Arial, sans-serif';
+                    iconDiv.style.letterSpacing = '-1px';
+                    iconDiv.innerHTML = 'N';
                 } else if (app.id === 'app-icon-8') {
                     iconDiv.style.background = '#ffffff';
                     iconDiv.style.color = '#1c1c1e';

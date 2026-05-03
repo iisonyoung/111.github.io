@@ -35,7 +35,7 @@ function createAttachmentSheet(page) {
         window.imData.attachmentSheet = attachmentSheet;
         attachmentSheet.style.position = 'absolute';
         attachmentSheet.style.inset = '0';
-        attachmentSheet.style.zIndex = '25';
+        attachmentSheet.style.zIndex = '45';
         attachmentSheet.style.display = 'none';
         attachmentSheet.style.flexDirection = 'column';
         attachmentSheet.style.justifyContent = 'flex-end';
@@ -101,6 +101,12 @@ function createAttachmentSheet(page) {
                     <!-- More View -->
                     <div class="sheet-view view-more" style="position: absolute; inset: 0; display: none; flex-direction: column; align-items: flex-start; justify-content: flex-start; background: #fff; padding: 20px 18px 120px; gap: 14px;">
                         <div class="attachment-more-icon-grid">
+                            <div class="attachment-more-regenerate-entry">
+                                <div class="attachment-more-regenerate-icon">
+                                    <i class="fas fa-rotate-left"></i>
+                                </div>
+                                <div class="attachment-more-regenerate-label">重回</div>
+                            </div>
                             <div class="attachment-more-pay-entry">
                                 <div class="attachment-more-pay-icon">
                                     <i class="fas fa-wallet"></i>
@@ -120,7 +126,15 @@ function createAttachmentSheet(page) {
                             cursor: pointer;
                             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
                         }
+                        .attachment-more-regenerate-entry {
+                            cursor: pointer;
+                            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
+                        }
                         .attachment-more-pay-entry:active {
+                            transform: scale(0.85);
+                            opacity: 0.7;
+                        }
+                        .attachment-more-regenerate-entry:active {
                             transform: scale(0.85);
                             opacity: 0.7;
                         }
@@ -242,6 +256,7 @@ function createAttachmentSheet(page) {
         const tabsContainer = attachmentSheet.querySelector('.sheet-tabs-container');
         const tabItems = attachmentSheet.querySelectorAll('.sheet-tab-item');
         const payEntry = attachmentSheet.querySelector('.attachment-more-pay-entry');
+        const regenerateEntry = attachmentSheet.querySelector('.attachment-more-regenerate-entry');
         const payFormOverlay = attachmentSheet.querySelector('.pay-transfer-form-overlay');
         const payAmountInput = attachmentSheet.querySelector('.pay-transfer-amount-input');
         const payDescInput = attachmentSheet.querySelector('.pay-transfer-desc-input');
@@ -710,6 +725,29 @@ function createAttachmentSheet(page) {
             });
         }
 
+        if (regenerateEntry) {
+            regenerateEntry.addEventListener('click', async () => {
+                if (regenerateEntry.dataset.busy === 'true') return;
+
+                const activeFriend = window.imData.currentActiveFriend;
+                if (!activeFriend || !window.imChat.regenerateLastAiReply) {
+                    if (window.showToast) window.showToast('暂无可重回的回复');
+                    return;
+                }
+
+                regenerateEntry.dataset.busy = 'true';
+                regenerateEntry.style.opacity = '0.45';
+                closeSheet();
+
+                try {
+                    await window.imChat.regenerateLastAiReply(activeFriend, regenerateEntry);
+                } finally {
+                    regenerateEntry.dataset.busy = 'false';
+                    regenerateEntry.style.opacity = '';
+                }
+            });
+        }
+
         if (payRecipientTrigger) {
             payRecipientTrigger.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -898,8 +936,7 @@ function openAttachmentSheet() {
         const sheet = window.imChat.createAttachmentSheet(page);
         const inputContainer = page.querySelector('.ins-chat-input-container');
         if (inputContainer) {
-            inputContainer.classList.remove('push-up');
-            inputContainer.classList.add('push-up-more');
+            inputContainer.classList.remove('push-up', 'push-up-more');
         }
         sheet.style.display = 'flex';
         // force reflow

@@ -30,6 +30,183 @@ window.imData = {
 
 window.imApp = window.imApp || {};
 
+window.imApp.scopeUserCss = function(css, scope) {
+    if (!css || !scope) return '';
+
+    function findMatchingBrace(text, openIndex) {
+        let depth = 0;
+        let quote = null;
+        let inComment = false;
+
+        for (let i = openIndex; i < text.length; i += 1) {
+            const char = text[i];
+            const next = text[i + 1];
+
+            if (inComment) {
+                if (char === '*' && next === '/') {
+                    inComment = false;
+                    i += 1;
+                }
+                continue;
+            }
+
+            if (quote) {
+                if (char === '\\') {
+                    i += 1;
+                } else if (char === quote) {
+                    quote = null;
+                }
+                continue;
+            }
+
+            if (char === '/' && next === '*') {
+                inComment = true;
+                i += 1;
+                continue;
+            }
+
+            if (char === '"' || char === "'") {
+                quote = char;
+                continue;
+            }
+
+            if (char === '{') depth += 1;
+            if (char === '}') {
+                depth -= 1;
+                if (depth === 0) return i;
+            }
+        }
+
+        return -1;
+    }
+
+    function splitSelectorList(selectorText) {
+        const selectors = [];
+        let current = '';
+        let squareDepth = 0;
+        let parenDepth = 0;
+        let quote = null;
+
+        for (let i = 0; i < selectorText.length; i += 1) {
+            const char = selectorText[i];
+
+            if (quote) {
+                current += char;
+                if (char === '\\') {
+                    i += 1;
+                    current += selectorText[i] || '';
+                } else if (char === quote) {
+                    quote = null;
+                }
+                continue;
+            }
+
+            if (char === '"' || char === "'") {
+                quote = char;
+                current += char;
+                continue;
+            }
+
+            if (char === '[') squareDepth += 1;
+            if (char === ']') squareDepth = Math.max(0, squareDepth - 1);
+            if (char === '(') parenDepth += 1;
+            if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
+
+            if (char === ',' && squareDepth === 0 && parenDepth === 0) {
+                selectors.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+
+        if (current.trim()) selectors.push(current.trim());
+        return selectors;
+    }
+
+    function scopeSelector(selector) {
+        const trimmed = selector.trim();
+        if (!trimmed) return trimmed;
+        if (trimmed.includes(':scope')) return trimmed.replace(/:scope/g, scope);
+        if (trimmed === ':root' || trimmed === 'html' || trimmed === 'body') return scope;
+        if (trimmed.startsWith(scope)) return trimmed;
+        return `${scope} ${trimmed}`;
+    }
+
+    function scopeRules(text) {
+        let output = '';
+        let cursor = 0;
+
+        while (cursor < text.length) {
+            const openIndex = text.indexOf('{', cursor);
+            if (openIndex === -1) {
+                output += text.slice(cursor);
+                break;
+            }
+
+            const prelude = text.slice(cursor, openIndex);
+            const trimmedPrelude = prelude.trim();
+            const closeIndex = findMatchingBrace(text, openIndex);
+
+            if (closeIndex === -1) {
+                output += text.slice(cursor);
+                break;
+            }
+
+            const body = text.slice(openIndex + 1, closeIndex);
+            const lowerPrelude = trimmedPrelude.toLowerCase();
+
+            if (!trimmedPrelude) {
+                output += text.slice(cursor, closeIndex + 1);
+            } else if (
+                lowerPrelude.startsWith('@media') ||
+                lowerPrelude.startsWith('@supports') ||
+                lowerPrelude.startsWith('@container') ||
+                lowerPrelude.startsWith('@layer')
+            ) {
+                output += `${prelude}{${scopeRules(body)}}`;
+            } else if (
+                lowerPrelude.startsWith('@keyframes') ||
+                lowerPrelude.startsWith('@-webkit-keyframes') ||
+                lowerPrelude.startsWith('@font-face') ||
+                lowerPrelude.startsWith('@property') ||
+                lowerPrelude.startsWith('@page')
+            ) {
+                output += text.slice(cursor, closeIndex + 1);
+            } else if (trimmedPrelude.startsWith('@')) {
+                output += text.slice(cursor, closeIndex + 1);
+            } else {
+                const leadingWhitespace = prelude.match(/^\s*/)?.[0] || '';
+                const scopedPrelude = splitSelectorList(trimmedPrelude).map(scopeSelector).join(', ');
+                output += `${leadingWhitespace}${scopedPrelude}{${body}}`;
+            }
+
+            cursor = closeIndex + 1;
+        }
+
+        return output;
+    }
+
+    return scopeRules(String(css));
+};
+
+window.imApp.applyGlobalChatCss = function(themeState = window.u2ThemeState || {}) {
+    const styleId = 'global-imessage-chat-css';
+    let styleTag = document.getElementById(styleId);
+
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = styleId;
+        document.head.appendChild(styleTag);
+    }
+
+    const enabled = !!themeState.imessageChatCssEnabled;
+    const css = typeof themeState.imessageChatCss === 'string' ? themeState.imessageChatCss : '';
+    styleTag.textContent = enabled && css.trim()
+        ? window.imApp.scopeUserCss(css, '.active-chat-interface.im-chat-single')
+        : '';
+};
+
 window.imApp.createDefaultMemory = function() {
     return {
         overview: '',
@@ -47,7 +224,7 @@ window.imApp.createDefaultMemory = function() {
 };
 
 window.imApp.isCharacterSleeping = function(friend) {
-    if (!friend || !friend.memory || !friend.memory.schedule || !friend.memory.schedule.enabled) {
+    if (!friend || !friend.memory || !friend.memory.schedule) {
         return false;
     }
     
@@ -135,6 +312,10 @@ window.imApp.normalizeFriendData = function(friend) {
     normalized.chatBgAssetId = normalized.chatBgAssetId || null;
     normalized.customCssEnabled = !!normalized.customCssEnabled;
     normalized.customCss = normalized.customCss || '';
+    normalized.chatCssEnabled = !!normalized.chatCssEnabled;
+    normalized.chatCss = normalized.chatCss || '';
+    normalized.statusCssEnabled = !!normalized.statusCssEnabled;
+    normalized.statusCss = normalized.statusCss || '';
     normalized.isPinned = !!normalized.isPinned;
     normalized.showTimestamp = !!normalized.showTimestamp;
     normalized.boundBooks = Array.isArray(normalized.boundBooks) ? normalized.boundBooks : [];
@@ -196,7 +377,7 @@ window.imApp.normalizeFriendData = function(friend) {
         cherishedEntries: Array.isArray(memory.cherishedEntries)
             ? memory.cherishedEntries.map((entry, index) => ({
                 id: entry?.id != null ? entry.id : `cherished-${index}`,
-                title: entry?.title || '珍视回忆',
+                title: entry?.title || '下载项',
                 content: entry?.content || '',
                 detail: entry?.detail || '',
                 reason: entry?.reason || '',
@@ -2608,7 +2789,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Stickers view or openView not found');
                 }
             } else {
-                if(window.showToast) window.showToast('Service clicked');
+                // Ignore general service clicks
             }
         });
     });
@@ -3127,6 +3308,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const memoryLocationSheet = document.getElementById('memory-location-sheet');
     const memoryLocationSheetContent = document.getElementById('memory-location-sheet-content');
     const memoryEntryDetailModal = document.getElementById('memory-entry-detail-modal');
+    const scheduleModal = document.getElementById('chat-memory-schedule-modal');
+    const scheduleClose = document.getElementById('chat-memory-schedule-close');
+    const scheduleAddModal = document.getElementById('chat-memory-schedule-add-modal');
     const memoryEntryDetailTitle = document.getElementById('memory-entry-detail-title');
     const memoryEntryDetailBody = document.getElementById('memory-entry-detail-body');
     const memoryEntryDetailClose = document.getElementById('memory-entry-detail-close');
@@ -3176,7 +3360,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isActive = String(item.dataset.friendId) === String(friend.id);
                 item.classList.toggle('active', isActive);
                 if (isActive && options.scroll !== false) {
-                    item.scrollIntoView({ behavior: options.instant ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+                    const scrollLeft = item.offsetLeft - memoryTopFriendsScroll.offsetWidth / 2 + item.offsetWidth / 2;
+                    memoryTopFriendsScroll.scrollTo({ left: scrollLeft, behavior: options.instant ? 'auto' : 'smooth' });
                 }
             });
         }
@@ -3271,6 +3456,187 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderScheduleModal() {
+        const friend = getCurrentMemoryFriend();
+        if (!friend || !friend.memory || !friend.memory.schedule) return;
+
+        const sleepText = document.getElementById('chat-memory-schedule-sleep-text');
+        const wakeText = document.getElementById('chat-memory-schedule-wake-text');
+        const sleepPicker = document.getElementById('chat-memory-schedule-sleep-picker');
+        const wakePicker = document.getElementById('chat-memory-schedule-wake-picker');
+        const timeline = document.getElementById('chat-memory-schedule-timeline');
+        const addScheduleBtn = document.getElementById('chat-memory-schedule-add-btn');
+
+        const schedule = friend.memory.schedule;
+        
+        if (addScheduleBtn) {
+            addScheduleBtn.onclick = () => {
+                if (scheduleAddModal && window.openView) {
+                    const nameInput = document.getElementById('chat-memory-schedule-add-name');
+                    const startInput = document.getElementById('chat-memory-schedule-add-start');
+                    const endInput = document.getElementById('chat-memory-schedule-add-end');
+                    if (nameInput) nameInput.value = '';
+                    if (startInput) {
+                        const now = new Date();
+                        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                        startInput.value = now.toISOString().slice(0, 16);
+                    }
+                    if (endInput) {
+                        const now = new Date();
+                        now.setHours(now.getHours() + 1);
+                        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                        endInput.value = now.toISOString().slice(0, 16);
+                    }
+                    window.openView(scheduleAddModal);
+                }
+            };
+        }
+
+        const confirmAddBtn = document.getElementById('chat-memory-schedule-add-confirm-btn');
+        if (confirmAddBtn) {
+            confirmAddBtn.onclick = async () => {
+                const nameInput = document.getElementById('chat-memory-schedule-add-name');
+                const startInput = document.getElementById('chat-memory-schedule-add-start');
+                const endInput = document.getElementById('chat-memory-schedule-add-end');
+                
+                const eventName = nameInput ? nameInput.value.trim() : '';
+                const startTime = startInput ? startInput.value : '';
+                const endTime = endInput ? endInput.value : '';
+                
+                if (!eventName || !startTime || !endTime) {
+                    if (window.showToast) window.showToast('请输入完整的行程信息');
+                    return;
+                }
+
+                if (new Date(startTime) >= new Date(endTime)) {
+                    if (window.showToast) window.showToast('结束时间必须晚于开始时间');
+                    return;
+                }
+
+                await window.imApp.commitScopedFriendChange(friend, (f) => {
+                    if (!f.memory.schedule) f.memory.schedule = {};
+                    if (!Array.isArray(f.memory.schedule.events)) f.memory.schedule.events = [];
+                    
+                    const formatTime = (timeStr) => {
+                        const d = new Date(timeStr);
+                        return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    };
+
+                    const formattedStartTime = formatTime(startTime);
+                    const formattedEndTime = formatTime(endTime);
+
+                    f.memory.schedule.events.push({
+                        id: Date.now(),
+                        name: eventName,
+                        time: `${formattedStartTime} - ${formattedEndTime}`,
+                        rawTime: startTime,
+                        endTime: endTime
+                    });
+                    
+                    f.memory.schedule.events.sort((a, b) => new Date(a.rawTime) - new Date(b.rawTime));
+                }, { silent: true });
+
+                if (scheduleAddModal && window.closeView) {
+                    window.closeView(scheduleAddModal);
+                }
+                renderScheduleModal();
+            };
+        }
+        
+        if (sleepText && sleepPicker) {
+            sleepText.textContent = schedule.sleepTime || '23:00';
+            sleepPicker.value = schedule.sleepTime || '23:00';
+            sleepPicker.onchange = async (e) => {
+                sleepText.textContent = e.target.value;
+                await window.imApp.commitScopedFriendChange(friend, (f) => {
+                    if (!f.memory.schedule) f.memory.schedule = {};
+                    f.memory.schedule.sleepTime = e.target.value;
+                }, { silent: true });
+                renderScheduleModal();
+            };
+        }
+
+        if (wakeText && wakePicker) {
+            wakeText.textContent = schedule.wakeTime || '07:00';
+            wakePicker.value = schedule.wakeTime || '07:00';
+            wakePicker.onchange = async (e) => {
+                wakeText.textContent = e.target.value;
+                await window.imApp.commitScopedFriendChange(friend, (f) => {
+                    if (!f.memory.schedule) f.memory.schedule = {};
+                    f.memory.schedule.wakeTime = e.target.value;
+                }, { silent: true });
+                renderScheduleModal();
+            };
+        }
+
+        if (timeline) {
+            const wake = schedule.wakeTime || '07:00';
+            const sleep = schedule.sleepTime || '23:00';
+            const events = Array.isArray(schedule.events) ? schedule.events : [];
+            
+            let html = `<div style="position: absolute; left: 24px; top: 10px; bottom: 10px; width: 2px; background: #e5e5ea; z-index: 1;"></div>`;
+            
+            html += `
+                <div style="position: relative; z-index: 2; display: flex; align-items: flex-start;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #007aff; margin-right: 15px; margin-top: 5px; box-shadow: 0 0 0 4px #fff; flex-shrink: 0;"></div>
+                    <div>
+                        <div style="font-size: 16px; font-weight: 600; color: #111;">起床</div>
+                        <div style="font-size: 13px; color: #8e8e93; margin-top: 2px;">${wake} - 开启新的一天</div>
+                    </div>
+                </div>
+            `;
+
+            events.forEach(evt => {
+                html += `
+                    <div style="position: relative; z-index: 2; display: flex; align-items: flex-start;">
+                        <div style="width: 10px; height: 10px; border-radius: 50%; background: #8e8e93; margin-right: 15px; margin-top: 15px; box-shadow: 0 0 0 4px #fff; flex-shrink: 0;"></div>
+                        <div class="schedule-event-card" data-event-id="${evt.id}" style="background: #f2f2f7; border-radius: 16px; padding: 12px 16px; flex: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="font-size: 15px; font-weight: 600; color: #111;">${evt.name}</div>
+                            <div style="font-size: 13px; color: #8e8e93; margin-top: 4px;">${evt.time}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div style="position: relative; z-index: 2; display: flex; align-items: flex-start;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: #5856d6; margin-right: 15px; margin-top: 5px; box-shadow: 0 0 0 4px #fff; flex-shrink: 0;"></div>
+                    <div>
+                        <div style="font-size: 16px; font-weight: 600; color: #111;">睡觉</div>
+                        <div style="font-size: 13px; color: #8e8e93; margin-top: 2px;">${sleep} - 休息时间到了</div>
+                    </div>
+                </div>
+            `;
+            
+            timeline.innerHTML = html;
+
+            const eventCards = timeline.querySelectorAll('.schedule-event-card');
+            eventCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const eventId = card.getAttribute('data-event-id');
+                    const targetEvent = events.find(e => String(e.id) === String(eventId));
+                    if (targetEvent && window.imApp.showCustomModal) {
+                        window.imApp.showCustomModal({
+                            title: '行程详情',
+                            message: `行程：${targetEvent.name}\n时间：${targetEvent.time}`,
+                            isDestructive: true,
+                            confirmText: '删除行程',
+                            onConfirm: async () => {
+                                await window.imApp.commitScopedFriendChange(friend, (f) => {
+                                    if (f.memory && f.memory.schedule && Array.isArray(f.memory.schedule.events)) {
+                                        f.memory.schedule.events = f.memory.schedule.events.filter(e => String(e.id) !== String(eventId));
+                                    }
+                                }, { silent: true });
+                                if (window.showToast) window.showToast('行程已删除');
+                                renderScheduleModal();
+                            }
+                        });
+                    }
+                });
+            });
+        }
+    }
+
     function getCurrentMemoryFriend() {
         const friends = getMemoryFriends();
         return friends.find(f => String(f.id) === String(currentMemoryFriendId)) || friends[0] || null;
@@ -3296,20 +3662,111 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="memory-entry-field-label">记忆程度</div>
                 <div class="memory-entry-field-value">${escapeMemoryHtml(entry.degree || '高')}</div>
             </div>
+            <div style="margin-top: 20px;">
+                <button type="button" id="memory-entry-detail-delete-btn" style="width: 100%; padding: 12px; border-radius: 12px; background: #ffe5e5; color: #ff3b30; border: none; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fas fa-trash-alt"></i> 删除这条记忆
+                </button>
+            </div>
         `;
+        
+        const deleteBtn = document.getElementById('memory-entry-detail-delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                const friend = getCurrentMemoryFriend();
+                if (!friend) return;
+                
+                const saved = await window.imApp.commitScopedFriendChange(friend, (targetFriend) => {
+                    if (!targetFriend || !targetFriend.memory || !Array.isArray(targetFriend.memory.shortTermEntries)) return;
+                    targetFriend.memory.shortTermEntries = targetFriend.memory.shortTermEntries.filter(e => String(e.id) !== String(entry.id));
+                }, { silent: true });
+
+                if (saved) {
+                    if (window.showToast) window.showToast('已删除短期记忆');
+                    if (window.closeView) window.closeView(memoryEntryDetailModal);
+                    renderMemoryLocationSheet('iphone'); // Re-render the list
+                } else {
+                    if (window.showToast) window.showToast('删除失败');
+                }
+            });
+        }
+        
         if (window.openView) window.openView(memoryEntryDetailModal);
     }
 
     function renderMemoryLocationSheet(location) {
         if (!memoryLocationSheetContent) return;
 
+        const friend = getCurrentMemoryFriend();
+        
+        if (location === 'icloud') {
+            memoryLocationSheetContent.innerHTML = `
+                <div class="memory-sheet-title">iCloud 云盘</div>
+                <div class="memory-short-list">
+                    <button type="button" class="memory-short-item" id="memory-schedule-btn">
+                        <span>日程作息</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
+            
+            const scheduleBtn = memoryLocationSheetContent.querySelector('#memory-schedule-btn');
+            if (scheduleBtn) {
+                scheduleBtn.addEventListener('click', () => {
+                    if (scheduleModal && window.openView) {
+                        renderScheduleModal();
+                        window.openView(scheduleModal);
+                    }
+                });
+            }
+            return;
+        }
+
+        const normalizedFriend = friend ? window.imApp.normalizeFriendData(friend) : null;
+
+        if (location === 'downloads') {
+            const cherishedEntries = Array.isArray(normalizedFriend?.memory?.cherishedEntries)
+                ? normalizedFriend.memory.cherishedEntries
+                : [];
+            
+            if (cherishedEntries.length === 0) {
+                memoryLocationSheetContent.innerHTML = `
+                    <div class="memory-sheet-title">下载项</div>
+                    <div class="memory-short-list">
+                        <div class="memory-short-empty">暂无下载项</div>
+                    </div>
+                `;
+                return;
+            }
+
+            memoryLocationSheetContent.innerHTML = `
+                <div class="memory-sheet-title">下载项</div>
+                <div class="chat-memory-modal-cherished-list" style="padding: 0 16px;">
+                    ${cherishedEntries.slice().reverse().map(entry => `
+                        <button type="button" class="chat-memory-modal-cherished-card" data-entry-id="${entry.id}">
+                            <div class="chat-memory-modal-cherished-card-title">${escapeMemoryHtml(entry.title || '下载项')}</div>
+                            <div class="chat-memory-modal-cherished-card-time">${escapeMemoryHtml(entry.createdAt || '点击查看详情')}</div>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+
+            memoryLocationSheetContent.querySelectorAll('.chat-memory-modal-cherished-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const entryId = btn.getAttribute('data-entry-id');
+                    const target = cherishedEntries.find(entry => String(entry.id) === String(entryId));
+                    if (target && window.imApp.showCherishedMemoryDetail) {
+                        window.imApp.showCherishedMemoryDetail(target);
+                    }
+                });
+            });
+            return;
+        }
+
         if (location !== 'iphone') {
             memoryLocationSheetContent.innerHTML = '';
             return;
         }
 
-        const friend = getCurrentMemoryFriend();
-        const normalizedFriend = friend ? window.imApp.normalizeFriendData(friend) : null;
         // "我的 iPhone" acts as the short-term memory library for manually generated chat summaries.
         const entries = Array.isArray(normalizedFriend?.memory?.shortTermEntries)
             ? normalizedFriend.memory.shortTermEntries
@@ -3353,6 +3810,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (memoryEntryDetailClose && memoryEntryDetailModal) {
         memoryEntryDetailClose.addEventListener('click', () => {
             if (window.closeView) window.closeView(memoryEntryDetailModal);
+        });
+    }
+
+    if (scheduleClose && scheduleModal) {
+        scheduleClose.addEventListener('click', () => {
+            if (window.closeView) window.closeView(scheduleModal);
         });
     }
 

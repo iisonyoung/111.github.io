@@ -150,13 +150,17 @@ window.lovesApp = {
                                     return;
                                 }
                                 
-                                if (!this.currentFriend.lovesData) this.currentFriend.lovesData = {};
-                                if (!this.currentFriend.lovesData.schedules) this.currentFriend.lovesData.schedules = [];
+                                if (!this.currentFriend.memory) this.currentFriend.memory = {};
+                                if (!this.currentFriend.memory.schedule) this.currentFriend.memory.schedule = {};
+                                if (!this.currentFriend.memory.schedule.events) this.currentFriend.memory.schedule.events = [];
                                 
-                                this.currentFriend.lovesData.schedules.push({
+                                this.currentFriend.memory.schedule.events.push({
                                     id: 'sch_' + Date.now(),
+                                    name: title,
                                     title: title,
                                     date: date,
+                                    startTime: time,
+                                    endTime: time,
                                     time: time,
                                     location: loc,
                                     timestamp: Date.now()
@@ -280,10 +284,10 @@ window.lovesApp = {
         // 渲染行程列表
         const selectedDateStr = baseDate.toISOString().split('T')[0];
         let schedules = [];
-        if (this.currentFriend && this.currentFriend.lovesData && this.currentFriend.lovesData.schedules) {
-            schedules = this.currentFriend.lovesData.schedules.filter(s => s.date === selectedDateStr);
+        if (this.currentFriend && this.currentFriend.memory && this.currentFriend.memory.schedule && this.currentFriend.memory.schedule.events) {
+            schedules = this.currentFriend.memory.schedule.events.filter(s => s.date === selectedDateStr);
             // 按时间排序
-            schedules.sort((a, b) => a.time.localeCompare(b.time));
+            schedules.sort((a, b) => (a.startTime || a.time || '').localeCompare(b.startTime || b.time || ''));
         }
 
         let listHtml = `<!-- 垂直轴线 -->
@@ -293,17 +297,18 @@ window.lovesApp = {
             listHtml += `<div style="text-align: center; color: #8e8e93; font-size: 14px; margin-top: 60px; position: relative; z-index: 3;">没有当天的行程安排</div>`;
         } else {
             schedules.forEach((s, idx) => {
+                const timeDisplay = s.startTime && s.endTime ? `${s.startTime}~${s.endTime}` : (s.time || '');
                 listHtml += `
                 <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px; position: relative;" class="lovers-schedule-item" data-idx="${idx}">
                     <div style="display: flex; flex-direction: column; align-items: flex-end; width: 45px; flex-shrink: 0; padding-top: 14px;">
-                        <div style="font-size: 14px; font-weight: 700; color: #111;">${s.time}</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #111; word-break: break-all; text-align: right;">${timeDisplay}</div>
                     </div>
                     <div style="width: 12px; height: 12px; border-radius: 50%; background: #ff9bb3; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(255,155,179,0.3); position: absolute; left: 49px; top: 16px; z-index: 2;"></div>
                     <div style="flex: 1; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); margin-left: 10px; position: relative;">
                         <div class="delete-schedule-btn" style="position: absolute; top: 16px; right: 16px; color: #ccc; cursor: pointer; font-size: 14px;"><i class="fas fa-times"></i></div>
-                        <div style="font-size: 16px; font-weight: 600; color: #111; margin-bottom: 6px; padding-right: 20px;">${s.title}</div>
+                        <div style="font-size: 16px; font-weight: 600; color: #111; margin-bottom: 6px; padding-right: 20px;">${s.name || s.title}</div>
                         <div style="font-size: 13px; color: #8e8e93; display: flex; align-items: center; gap: 4px;">
-                            <i class="fas fa-map-marker-alt"></i> ${s.location}
+                            <i class="fas fa-map-marker-alt"></i> ${s.location || '未设置地点'}
                         </div>
                     </div>
                 </div>`;
@@ -322,10 +327,10 @@ window.lovesApp = {
                 const idx = itemEl.getAttribute('data-idx');
                 const s = schedules[idx];
                 
-                if (confirm(`确定要删除日程 "${s.title}" 吗？`)) {
-                    const originalIdx = this.currentFriend.lovesData.schedules.findIndex(os => os.id === s.id);
+                if (confirm(`确定要删除日程 "${s.name || s.title}" 吗？`)) {
+                    const originalIdx = this.currentFriend.memory.schedule.events.findIndex(os => os.id === s.id);
                     if (originalIdx !== -1) {
-                        this.currentFriend.lovesData.schedules.splice(originalIdx, 1);
+                        this.currentFriend.memory.schedule.events.splice(originalIdx, 1);
                         this.persistFriendState();
                         this.renderCalendar();
                     }
@@ -917,8 +922,9 @@ window.lovesApp = {
             item.appendChild(actionBtn);
             
             item.addEventListener('click', () => {
-                // 点击时将其滚动到中心
-                item.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                // 点击时将其滚动到中心 (使用容器自身的 scroll 避免影响外层页面偏移)
+                const scrollLeft = item.offsetLeft - container.offsetWidth / 2 + item.offsetWidth / 2;
+                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
             });
             
             container.appendChild(item);

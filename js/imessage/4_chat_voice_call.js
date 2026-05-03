@@ -152,6 +152,7 @@
             mainContent.style.display = 'flex';
             newView.style.background = 'rgba(0, 0, 0, 0.85)';
             newView.style.backdropFilter = 'blur(25px)';
+            newView.style.webkitBackdropFilter = 'blur(25px)';
         }
 
         if (window.openView) window.openView(newView);
@@ -249,6 +250,7 @@
                 minimizedFloat.style.display = 'flex';
                 newView.style.background = 'transparent';
                 newView.style.backdropFilter = 'none';
+                newView.style.webkitBackdropFilter = 'none';
                 newView.style.pointerEvents = 'none'; // Only allow clicking the float
                 
                 // Reset float position
@@ -330,6 +332,7 @@
                 mainContent.style.display = 'flex';
                 newView.style.background = 'rgba(0, 0, 0, 0.85)';
                 newView.style.backdropFilter = 'blur(25px)';
+                newView.style.webkitBackdropFilter = 'blur(25px)';
                 newView.style.pointerEvents = 'auto';
             });
         }

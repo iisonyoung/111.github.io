@@ -29,8 +29,15 @@ async function openChatTab(friend) {
         friend = activeFriend;
         let pageId = `chat-interface-${friend.id}`;
         let page = document.getElementById(pageId);
+        const isGroupChat = friend.type === 'group';
+        const interfaceClassName = `active-chat-interface im-chat-interface ${isGroupChat ? 'im-chat-group' : 'im-chat-single'}`;
+        const isSleeping = window.imApp.isCharacterSleeping(friend);
+        const statusLabel = isSleeping ? 'offline' : 'online';
+        const statusColor = isSleeping ? '#8e8e93' : '#34c759';
 
         if (page) {
+            page.className = interfaceClassName;
+            page.style.setProperty('--im-chat-status-color', statusColor);
             const msgContainer = page.querySelector('.ins-chat-messages');
             if (msgContainer) msgContainer.innerHTML = '';
         }
@@ -38,11 +45,12 @@ async function openChatTab(friend) {
         if (!page) {
             page = document.createElement('div');
             page.id = pageId;
-            page.className = 'active-chat-interface';
+            page.className = interfaceClassName;
             page.style.display = 'none';
+            page.style.setProperty('--im-chat-status-color', statusColor);
             
             let avatarHtml;
-            if (friend.type === 'group') {
+            if (isGroupChat) {
                 avatarHtml = friend.avatarUrl 
                     ? `<img src="${friend.avatarUrl}" style="display: block;">` 
                     : `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #ff9a9e, #fecfef); color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px;">${friend.nickname.charAt(0).toUpperCase()}</div>`;
@@ -52,65 +60,61 @@ async function openChatTab(friend) {
                     : `<i class="fas fa-user"></i>`;
             }
 
-            const isSleeping = window.imApp.isCharacterSleeping(friend);
-            const statusLabel = isSleeping ? 'offline' : 'online';
-            const statusColor = isSleeping ? '#8e8e93' : '#34c759';
-
-            const headerStyle = friend.type === 'group' 
+            const headerStyle = isGroupChat
                 ? `position: relative; top: 0; padding: 0 16px; align-items: center; justify-content: space-between; display: flex; pointer-events: none; width: 100%;`
                 : `position: relative; top: 0; padding: 0 16px; align-items: center;`;
                 
             let titleHtml = '';
-            if (friend.type === 'group') {
-                titleHtml = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 4px 16px; background: rgba(242, 242, 247, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); pointer-events: auto;">
+            if (isGroupChat) {
+                titleHtml = `<div class="im-chat-group-title-wrap" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 4px 16px; background: rgba(242, 242, 247, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); pointer-events: auto;">
                         <div class="ins-chat-name" style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${friend.nickname}</div>
                         <div class="ins-chat-sign" style="font-size: 11px; font-weight: 500; color: #8e8e93; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;">${(friend.members ? friend.members.length : 0) + 1} member${(friend.members ? friend.members.length : 0) + 1 > 1 ? 's' : ''}</div>
                    </div>`;
             } else if (friend.type === 'official') {
-                titleHtml = `<div style="position: relative; display: inline-block;">
-                        <div class="ins-chat-avatar" style="margin: 0; width: 44px; height: 44px; pointer-events: none;">
+                titleHtml = `<div class="im-chat-avatar-wrap">
+                        <div class="ins-chat-avatar" style="pointer-events: none;">
                             ${avatarHtml}
                         </div>
                    </div>
-                   <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; margin-left: 8px; gap: 1px;">
-                        <div class="ins-chat-name" style="font-size: 16px; font-weight: 600; line-height: 1.05;">${friend.nickname}</div>
-                        <div class="ins-chat-sign" style="font-size: 13px; color: #8e8e93; display: flex; align-items: center; gap: 4px; margin-top: 0; line-height: 1;"><div style="width:6px;height:6px;border-radius:50%;background:${statusColor}; flex-shrink:0;"></div><span>${statusLabel}</span></div>
+                   <div class="im-chat-title-wrap">
+                        <div class="ins-chat-name">${friend.nickname}</div>
+                        <div class="ins-chat-sign"><div class="im-chat-status-dot"></div><span>${statusLabel}</span></div>
                    </div>`;
             } else {
-                titleHtml = `<div style="position: relative; display: inline-block;">
-                        <div class="ins-chat-avatar" style="margin: 0; width: 44px; height: 44px;">
+                titleHtml = `<div class="im-chat-avatar-wrap">
+                        <div class="ins-chat-avatar">
                             ${avatarHtml}
                         </div>
                    </div>
-                   <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start; margin-left: 8px; gap: 1px;">
-                        <div class="ins-chat-name" style="font-size: 16px; line-height: 1.05;">${friend.nickname}</div>
-                        <div class="ins-chat-sign" style="font-size: 13px; color: #8e8e93; display: flex; align-items: center; gap: 4px; margin-top: 0; line-height: 1;"><div style="width:6px;height:6px;border-radius:50%;background:${statusColor}; flex-shrink:0;"></div><span>${statusLabel}</span></div>
+                   <div class="im-chat-title-wrap">
+                        <div class="ins-chat-name">${friend.nickname}</div>
+                        <div class="ins-chat-sign"><div class="im-chat-status-dot"></div><span>${statusLabel}</span></div>
                    </div>`;
             }
 
             // Make the right avatar a floating bubble as well
             let groupRightAvatarHtml = '';
-            if (friend.type === 'group') {
+            if (isGroupChat) {
                 groupRightAvatarHtml = `<div class="group-header-right-avatar" style="width: 36px; height: 36px; border-radius: 50%; background: rgba(242, 242, 247, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; justify-content: center; align-items: center; overflow: hidden; flex-shrink: 0; pointer-events: auto; cursor: pointer;">
                         <div style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #e5e5ea;">${avatarHtml}</div>
                    </div>`;
             } else if (friend.type === 'official') {
-                groupRightAvatarHtml = `<div class="chat-menu-btn" style="cursor: pointer; padding: 5px; font-size: 18px;"><i class="fas fa-bars"></i></div>
-                   <div class="chat-cancel-batch-btn" style="display:none; cursor: pointer; padding: 5px; color: #007aff; font-size: 16px; font-weight: 500;">取消</div>`;
+                groupRightAvatarHtml = `<div class="chat-menu-btn im-chat-icon-btn"><i class="fas fa-bars"></i></div>
+                   <div class="chat-cancel-batch-btn im-chat-cancel-batch-btn" style="display:none;">取消</div>`;
             } else {
-                groupRightAvatarHtml = `<div class="chat-call-btn" style="cursor: pointer; padding: 5px; font-size: 18px;"><i class="fas fa-phone-alt"></i></div>
-                   <div class="chat-menu-btn" style="cursor: pointer; padding: 5px; font-size: 18px;"><i class="fas fa-bars"></i></div>
-                   <div class="chat-cancel-batch-btn" style="display:none; cursor: pointer; padding: 5px; color: #007aff; font-size: 16px; font-weight: 500;">取消</div>`;
+                groupRightAvatarHtml = `<div class="chat-call-btn im-chat-icon-btn"><i class="fas fa-phone-alt"></i></div>
+                   <div class="chat-menu-btn im-chat-icon-btn"><i class="fas fa-bars"></i></div>
+                   <div class="chat-cancel-batch-btn im-chat-cancel-batch-btn" style="display:none;">取消</div>`;
             }
 
-            const backBtnHtml = friend.type === 'group'
+            const backBtnHtml = isGroupChat
                 ? `<div class="chat-back-btn" style="cursor: pointer; width: 36px; height: 36px; background: rgba(242, 242, 247, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; justify-content: center; align-items: center; pointer-events: auto;">
                         <i class="fas fa-chevron-left" style="pointer-events: none; margin-right: 2px;"></i>
                    </div>`
-                : `<div class="chat-back-btn" style="cursor: pointer; padding: 5px 0 5px 0; width: 24px; display: flex; justify-content: center; align-items: center;"><i class="fas fa-chevron-left" style="pointer-events: none;"></i></div>`;
+                : `<div class="chat-back-btn im-chat-back-btn"><i class="fas fa-chevron-left" style="pointer-events: none;"></i></div>`;
 
             let topBarHtml = '';
-            if (friend.type === 'group') {
+            if (isGroupChat) {
                 topBarHtml = `
                     <div class="chat-top-bar" style="${headerStyle}">
                         ${backBtnHtml}
@@ -124,14 +128,14 @@ async function openChatTab(friend) {
                 `;
             } else {
                 topBarHtml = `
-                    <div class="chat-top-bar" style="${headerStyle}; padding-left: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <div class="chat-top-bar im-chat-top-bar">
+                        <div class="im-chat-header-left">
                             ${backBtnHtml}
-                            <div style="display: flex; align-items: center; justify-content: flex-start; flex: 1; cursor: pointer; pointer-events: auto;" class="ins-chat-header">
+                            <div class="ins-chat-header im-chat-header-main">
                                 ${titleHtml}
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="im-chat-actions">
                             ${groupRightAvatarHtml}
                         </div>
                     </div>
@@ -139,7 +143,7 @@ async function openChatTab(friend) {
             }
 
             page.innerHTML = `
-                <div class="chat-sticky-container" style="${friend.type === 'group' ? 'background: transparent; padding-bottom: 5px; pointer-events: none;' : 'background-color: #ffffff; border-bottom: 1px solid #f2f2f7; padding-bottom: 5px;'}">
+                <div class="chat-sticky-container ${isGroupChat ? 'is-group' : 'is-friend'}">
                     ${topBarHtml}
                 </div>
                 <div class="ins-chat-messages"></div>
@@ -151,7 +155,7 @@ async function openChatTab(friend) {
                     <div class="ins-chat-input-wrapper">
                         <div class="ins-input-icon plus-btn"><i class="fas fa-plus"></i></div>
                         <input type="text" placeholder="发送消息..." class="ins-message-input chat-input">
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div class="im-chat-input-actions">
                             <div class="send-btn-icon send-btn"><i class="fas fa-paper-plane"></i></div>
                             <div class="send-btn-icon mic-btn"><i class="fas fa-microphone"></i></div>
                         </div>
@@ -188,6 +192,9 @@ async function openChatTab(friend) {
             `;
 
             if(chatsContent) chatsContent.appendChild(page);
+            if (window.imApp.applyGlobalChatCss) {
+                window.imApp.applyGlobalChatCss(window.u2ThemeState || {});
+            }
 
             const backBtn = page.querySelector('.chat-back-btn');
             if (backBtn) {
@@ -648,7 +655,9 @@ async function openChatTab(friend) {
             const msgContainer = page.querySelector('.ins-chat-messages');
 
             if (plusBtn) {
-                plusBtn.addEventListener('click', () => {
+                plusBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (input) input.blur();
                     if (window.imChat.openAttachmentSheet) {
                         window.imChat.openAttachmentSheet();
                     }

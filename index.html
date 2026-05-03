@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -32,6 +32,7 @@
     <!-- App Styles -->
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="css/youtube.css">
+    <link rel="stylesheet" href="css/netflix.css">
 </head>
 <body>
     <div id="app">
@@ -190,11 +191,11 @@
                     </div>
 
                     <!-- App 3 & App 4 (Left side of Row 4) -->
-                    <div class="app-item" style="cursor: pointer;">
-                        <div class="app-icon icon-placeholder" id="app-icon-7" style="background: #ffffff; color: #111111; border: 1px solid #d9d9d9; display: flex; justify-content: center; align-items: center; font-size: 28px;">
-                            <i class="fas fa-feather-pointed" style="color: #9d1d1d;"></i>
+                    <div class="app-item netflix-app" id="app-netflix-btn" style="cursor: pointer;" onclick="if(window.netflixApp) window.netflixApp.open();">
+                        <div class="app-icon icon-placeholder" id="app-icon-7" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 32px; font-weight: 900; font-family: Arial, sans-serif; letter-spacing: -1px;">
+                            N
                         </div>
-                        <span class="app-name">AO3</span>
+                        <span class="app-name">Netflix</span>
                     </div>
                     <div class="app-item loves-app" id="app-loves-btn" style="cursor: pointer;" onclick="if(window.lovesApp) window.lovesApp.open();">
                         <div class="app-icon icon-placeholder" id="app-icon-8" style="background: #ffffff; color: #1c1c1e; border: 1px solid #e5e5ea; display: flex; justify-content: center; align-items: center; font-size: 28px;">
@@ -1110,10 +1111,10 @@
                                 <div class="line-service-icon"><i class="far fa-smile"></i></div>
                                 <span>Stickers</span>
                             </div>
-                            <div class="line-service-item">
-                                <div class="line-service-icon"><i class="fas fa-paint-roller"></i></div>
-                                <span>Themes</span>
-                            </div>
+                              <div class="line-service-item" id="imessage-themes-btn">
+                                  <div class="line-service-icon"><i class="fas fa-paint-roller"></i></div>
+                                  <span>Themes</span>
+                              </div>
                             <div class="line-service-item" id="official-accounts-btn">
                                 <div class="line-service-icon"><i class="fas fa-bullhorn"></i></div>
                                 <span>Official Accounts</span>
@@ -1269,6 +1270,8 @@
                                 <i class="fas fa-chevron-right memory-file-chevron"></i>
                             </div>
                         </div>
+
+                        <div class="memory-section-title">标签</div>
                     </div>
                 </div>
 
@@ -1496,7 +1499,7 @@
                                     <span id="moment-action-pin-text">置顶</span>
                                 </div>
                                 <div class="moment-action-btn-item" id="moment-action-delete">
-                                    <div class="moment-action-icon-box" style="color: #ff3b30;"><i class="fas fa-trash-alt"></i></div>
+                                    <div class="moment-action-icon-box" style="color: #000000;"><i class="fas fa-trash-alt"></i></div>
                                     <span>删除</span>
                                 </div>
                             </div>
@@ -1593,6 +1596,75 @@
                         </div>
                     </div>
                     <div class="wb-centered-modal-body memory-entry-detail-body" id="memory-entry-detail-body"></div>
+                </div>
+            </div>
+
+            <div class="bottom-sheet-overlay detail-sheet-overlay wb-centered-modal-overlay" id="chat-memory-schedule-modal" style="z-index: 1300; background: rgba(0,0,0,0.35);">
+                <div class="wb-centered-modal-card memory-entry-detail-card" style="display: flex; flex-direction: column; max-height: 80vh; overflow: hidden;">
+                    <div class="wb-centered-modal-header" style="position: relative; flex-shrink: 0;">
+                        <div class="wb-centered-modal-title">日程作息</div>
+                        <div class="wb-centered-modal-close" id="chat-memory-schedule-close" style="position: absolute; right: 16px; top: 16px; font-size: 18px; color: #8e8e93; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    </div>
+                    <div class="wb-centered-modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+                        <div style="display: flex; justify-content: space-around; margin-bottom: 30px;">
+                            <!-- 睡眠时间气泡 -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
+                                <div style="font-size: 13px; color: #8e8e93;">睡眠时间</div>
+                                <div style="background: #f2f2f7; color: #007aff; font-size: 18px; font-weight: 600; padding: 12px 20px; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                    <span id="chat-memory-schedule-sleep-text">23:00</span>
+                                    <input type="time" id="chat-memory-schedule-sleep-picker" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                                </div>
+                            </div>
+                            
+                            <!-- 起床时间气泡 -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative;">
+                                <div style="font-size: 13px; color: #8e8e93;">起床时间</div>
+                                <div style="background: #f2f2f7; color: #007aff; font-size: 18px; font-weight: 600; padding: 12px 20px; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                    <span id="chat-memory-schedule-wake-text">07:00</span>
+                                    <input type="time" id="chat-memory-schedule-wake-picker" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div style="font-size: 16px; font-weight: 700; color: #111;">行程安排</div>
+                            <div id="chat-memory-schedule-add-btn" style="width: 28px; height: 28px; border-radius: 14px; background: #f2f2f7; display: flex; justify-content: center; align-items: center; color: #007aff; cursor: pointer; font-size: 14px;">
+                                <i class="fas fa-plus"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- 行程时间线 -->
+                        <div id="chat-memory-schedule-timeline" style="position: relative; padding-left: 20px; padding-bottom: 20px; display: flex; flex-direction: column; gap: 15px;">
+                            <!-- 行程将由 JS 渲染 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加自定义行程弹窗 -->
+            <div class="bottom-sheet-overlay detail-sheet-overlay" id="chat-memory-schedule-add-modal" style="z-index: 1350;">
+                <div class="bottom-sheet" style="height: auto; padding-bottom: 30px;">
+                    <div class="sheet-handle"></div>
+                    <div class="sheet-title">添加行程</div>
+                    <div class="detail-sheet-content" style="padding: 0 16px;">
+                        <div class="form-group fully-rounded" style="margin-bottom: 20px;">
+                            <div class="form-item">
+                                <label style="width: 60px;">名称</label>
+                                <input type="text" id="chat-memory-schedule-add-name" placeholder="输入行程名字">
+                            </div>
+                            <div class="form-item">
+                                <label style="width: 60px;">开始</label>
+                                <input type="datetime-local" id="chat-memory-schedule-add-start" style="border: none; outline: none; text-align: right; background: transparent; font-size: 16px; color: #007aff; flex: 1;">
+                            </div>
+                            <div class="form-item" style="border-bottom: none;">
+                                <label style="width: 60px;">结束</label>
+                                <input type="datetime-local" id="chat-memory-schedule-add-end" style="border: none; outline: none; text-align: right; background: transparent; font-size: 16px; color: #007aff; flex: 1;">
+                            </div>
+                        </div>
+                        <div class="sheet-action confirm-action" id="chat-memory-schedule-add-confirm-btn" style="background-color: #007aff; color: #fff;">保存</div>
+                    </div>
                 </div>
             </div>
 
@@ -2089,8 +2161,8 @@
             </div>
         </div>
 
-        <!-- Theme Config Bottom Sheet -->
-        <div class="bottom-sheet-overlay detail-sheet-overlay" id="theme-config-sheet" style="z-index: 500;">
+        <!-- Desktop Theme Config Bottom Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="desktop-theme-config-sheet" style="z-index: 500;">
             <div class="bottom-sheet" style="max-height: 85%; height: 80%; display: flex; flex-direction: column;">
                 <div class="sheet-handle"></div>
                 <div class="sheet-title">主题美化</div>
@@ -2143,6 +2215,65 @@
                     <!-- Hidden global file input for app icons -->
                     <input type="file" id="theme-app-file-input" accept="image/*" style="display:none;">
                     
+                </div>
+            </div>
+        </div>
+
+        <!-- iMessage Theme Config Bottom Sheet -->
+        <div class="bottom-sheet-overlay detail-sheet-overlay" id="theme-config-sheet" style="z-index: 500;">
+            <div class="bottom-sheet" style="max-height: 85%; height: 80%; display: flex; flex-direction: column; background-color: #ffffff;">
+                <div class="sheet-handle"></div>
+                <div class="sheet-title">主题美化</div>
+
+                <!-- Tabs -->
+                <div style="display: flex; border-bottom: 1px solid var(--separator-color); margin: 0 16px; padding-bottom: 10px; padding-top: 10px; gap: 10px;">
+                    <div class="theme-tab active" data-target="theme-tab-bubble" style="flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: var(--blue-color); cursor: pointer;">气泡 CSS</div>
+                    <div class="theme-tab" data-target="theme-tab-chat" style="flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: #8e8e93; cursor: pointer;">Chat CSS</div>
+                    <div class="theme-tab" data-target="theme-tab-status" style="flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: #8e8e93; cursor: pointer;">状态栏 CSS</div>
+                </div>
+
+                <div class="detail-sheet-content" style="padding-bottom: 30px; overflow-y: auto; flex: 1;">
+                    <!-- 气泡 CSS Tab -->
+                    <div id="theme-tab-bubble" class="theme-tab-content active" style="padding: 16px;">
+                        <textarea id="theme-bubble-css-input" class="global-textarea" style="font-family: monospace; font-size: 13px; height: 300px; width: 100%; border: 1px solid #e5e5ea; border-radius: 12px; padding: 12px; box-sizing: border-box;" placeholder="/* 示例：修改自己气泡颜色 */&#10;.user-bubble {&#10;  background: #000;&#10;  color: #fff;&#10;}"></textarea>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 16px;">
+                            <div class="sheet-action" id="theme-bubble-clear-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #ffebee; color: #ff3b30;">清空</div>
+                            <div class="sheet-action" id="theme-bubble-apply-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: var(--blue-color); color: #fff;">应用</div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="sheet-action" id="theme-bubble-save-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">存为预设</div>
+                            <div class="sheet-action" id="theme-bubble-list-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">预设列表</div>
+                        </div>
+                    </div>
+
+                    <!-- Chat CSS Tab -->
+                    <div id="theme-tab-chat" class="theme-tab-content" style="display: none; padding: 16px;">
+                        <textarea id="theme-chat-css-input" class="global-textarea" style="font-family: monospace; font-size: 13px; height: 300px; width: 100%; border: 1px solid #e5e5ea; border-radius: 12px; padding: 12px; box-sizing: border-box;" placeholder="/* 输入 Chat 相关界面的 CSS 代码 */"></textarea>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 16px;">
+                            <div class="sheet-action" id="theme-chat-clear-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #ffebee; color: #ff3b30;">清空</div>
+                            <div class="sheet-action" id="theme-chat-apply-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: var(--blue-color); color: #fff;">应用</div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="sheet-action" id="theme-chat-save-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">存为预设</div>
+                            <div class="sheet-action" id="theme-chat-list-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">预设列表</div>
+                        </div>
+                    </div>
+
+                    <!-- 状态栏 CSS Tab -->
+                    <div id="theme-tab-status" class="theme-tab-content" style="display: none; padding: 16px;">
+                        <textarea id="theme-status-css-input" class="global-textarea" style="font-family: monospace; font-size: 13px; height: 300px; width: 100%; border: 1px solid #e5e5ea; border-radius: 12px; padding: 12px; box-sizing: border-box;" placeholder="/* 输入状态栏相关界面的 CSS 代码 */"></textarea>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 16px;">
+                            <div class="sheet-action" id="theme-status-clear-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #ffebee; color: #ff3b30;">清空</div>
+                            <div class="sheet-action" id="theme-status-apply-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: var(--blue-color); color: #fff;">应用</div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="sheet-action" id="theme-status-save-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">存为预设</div>
+                            <div class="sheet-action" id="theme-status-list-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">预设列表</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3236,31 +3367,6 @@
                                     </label>
                                 </div>
 
-                                <div class="form-item" style="justify-content: space-between; border-bottom: none; background: #fff; border-radius: 0 0 20px 20px; transition: border-radius 0.2s;" id="bubble-style-header">
-                                    <label style="width: auto; font-size: 17px; color: #000;">气泡样式</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="bubble-style-toggle">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                
-                                <!-- 隐藏的 CSS 自定义区域 -->
-                                <div id="bubble-css-container" style="display: none; padding: 16px; background: #fff; border-top: 1px solid #e5e5ea; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
-                                    <textarea id="bubble-css-input" class="global-textarea" style="font-family: monospace; font-size: 13px;" placeholder="/* 示例：修改自己气泡颜色 */
-.user-bubble {
-  background: #000;
-  color: #fff;
-}"></textarea>
-                                    
-                                    <div style="display: flex; gap: 10px; margin-top: 16px;">
-                                        <div class="sheet-action" id="apply-css-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">应用</div>
-                                        <div class="sheet-action" id="save-css-preset-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">存为预设</div>
-                                    </div>
-                                    <div style="display: flex; gap: 10px; margin: 10px;">
-                                        <div class="sheet-action" id="load-css-preset-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #e5e5ea; color: #000;">预设列表</div>
-                                        <div class="sheet-action" id="reset-css-btn" style="flex: 1; margin: 0; font-size: 15px; padding: 10px; background: #ffebee; color: #ff3b30;">重置</div>
-                                    </div>
-                                </div>
                             </div>
 
                             <!-- 删除好友 -->
@@ -3271,50 +3377,21 @@
                         </div>
 
                         <div class="char-settings-panel" id="chat-settings-memory-panel">
-                            <div class="settings-group fully-rounded" style="margin: 10px 16px;">
-                                <div class="settings-item" id="chat-memory-overview-btn">
-                                    <div class="settings-icon" style="background-color: #5856d6;"><i class="fas fa-book-open"></i></div>
-                                    <div class="settings-text">总览</div>
-                                    <i class="fas fa-chevron-right arrow"></i>
-                                </div>
-                                <div class="settings-item" id="chat-memory-cherished-btn" style="border-bottom: none;">
-                                    <div class="settings-icon" style="background-color: #ff2d55;"><i class="fas fa-heart"></i></div>
-                                    <div class="settings-text">珍视回忆</div>
-                                    <i class="fas fa-chevron-right arrow"></i>
-                                </div>
-                            </div>
+                            <!-- 总览数据将由 JS 注入到此容器 -->
+                            <div id="chat-memory-overview-stats" style="margin: 10px 16px;"></div>
 
                             <div class="settings-group fully-rounded" style="margin: 10px 16px; overflow: visible;">
-                                <!-- 上下文补充 (带开关和数量输入) -->
-                                <div class="form-item" style="justify-content: space-between; border-bottom: 1px solid var(--separator-color);">
-                                    <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">上下文</label>
-                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="settings-item" style="justify-content: space-between; border-bottom: 1px solid var(--separator-color); cursor: default;">
+                                    <div style="display: flex; align-items: center;">
+                                        <div class="settings-icon" style="background-color: #ff9500;"><i class="fas fa-link"></i></div>
+                                        <div class="settings-text">上下文</div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px; padding-right: 10px;">
                                         <input type="number" id="chat-memory-context-limit-input" style="width: 50px; text-align: center; border: 1px solid #e5e5ea; border-radius: 8px; padding: 4px; font-size: 15px;" value="80">
                                         <label class="toggle-switch">
                                             <input type="checkbox" id="chat-memory-context-enabled-toggle" checked="">
                                             <span class="slider"></span>
                                         </label>
-                                    </div>
-                                </div>
-
-                                <div class="form-item" style="justify-content: space-between; border-bottom: 1px solid var(--separator-color); transition: border-radius 0.2s;" id="schedule-header">
-                                    <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">启用作息时间</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="chat-memory-schedule-enabled-toggle">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div id="chat-memory-schedule-details" style="display: none; flex-direction: column; background: #fff; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
-                                    <div class="form-item" style="justify-content: space-between; border-top: 1px solid var(--separator-color); border-bottom: 1px solid var(--separator-color);">
-                                        <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">睡觉时间</label>
-                                        <input type="time" id="chat-memory-schedule-sleep-input" style="border: none; text-align: right; outline: none; background: transparent; font-size: 17px; color: #007aff;">
-                                    </div>
-                                    <div class="form-item" style="justify-content: space-between; border-bottom: none;">
-                                        <label style="width: auto; font-size: 17px; color: #000; padding-left: 0;">醒来时间</label>
-                                        <input type="time" id="chat-memory-schedule-wake-input" style="border: none; text-align: right; outline: none; background: transparent; font-size: 17px; color: #007aff;">
-                                    </div>
-                                    <div style="font-size: 13px; color: #8e8e93; line-height: 1.6; padding: 10px 16px; border-top: 1px solid var(--separator-color);">
-                                        开启后，在睡觉时间段内，角色会自动显示为离线状态，并在回复时带有自动回复标记。
                                     </div>
                                 </div>
 
@@ -3395,7 +3472,110 @@
             </div>
     
 
-<!-- ========================================== -->
+            <!-- ========================================== -->
+            <!-- NETFLIX APP VIEW -->
+            <!-- ========================================== -->
+            <div class="app-view netflix-view" id="netflix-view" style="display: none; background: #000; flex-direction: column; position: absolute; inset: 0; z-index: 1000; color: #fff;">
+                <!-- Header (Transparent & Sticky) -->
+                <div class="netflix-header" id="netflix-header">
+                    <div class="netflix-logo" style="color: #E50914; font-size: 28px; font-weight: 900; letter-spacing: -1px; cursor: pointer;" onclick="window.netflixApp && window.netflixApp.close();">
+                        N
+                    </div>
+                    <div class="netflix-header-right">
+                        <i class="fas fa-search"></i>
+                        <div class="netflix-avatar"><i class="fas fa-user"></i></div>
+                    </div>
+                </div>
+
+                <!-- Scrollable Content -->
+                <div class="netflix-content" id="netflix-content">
+                    <div class="netflix-tab-panel active" data-panel="home">
+                    <!-- Hero Banner -->
+                    <div class="netflix-hero-banner">
+                        <div class="netflix-hero-img-wrapper">
+                            <!-- Placeholder image using gradient for hero -->
+                            <div class="netflix-hero-placeholder" style="background: linear-gradient(to bottom, #444, #111); width: 100%; height: 100%;"></div>
+                            <div class="netflix-hero-fade"></div>
+                        </div>
+                        <div class="netflix-hero-info">
+                            <div class="netflix-tags">
+                                <span>情感</span> • <span>剧情</span> • <span>动人</span>
+                            </div>
+                            <div class="netflix-hero-actions">
+                                <div class="netflix-btn netflix-btn-play">
+                                    <i class="fas fa-play"></i> 播放
+                                </div>
+                                <div class="netflix-btn netflix-btn-add">
+                                    <i class="fas fa-plus"></i> <span>我的列表</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 1 -->
+                    <div class="netflix-row">
+                        <h2 class="netflix-row-title">线下世界书</h2>
+                        <div class="netflix-row-scroll">
+                            <div class="netflix-card">
+                                <div class="netflix-card-img" style="background: #333;"></div>
+                                <div class="netflix-progress-bar"><div class="netflix-progress-fill" style="width: 40%;"></div></div>
+                            </div>
+                            <div class="netflix-card">
+                                <div class="netflix-card-img" style="background: #444;"></div>
+                                <div class="netflix-progress-bar"><div class="netflix-progress-fill" style="width: 80%;"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="netflix-row" style="padding-bottom: 80px;">
+                        <h2 class="netflix-row-title">为你推荐</h2>
+                        <div class="netflix-row-scroll">
+                            <div class="netflix-card vertical"><div class="netflix-card-img" style="background: #555;"></div></div>
+                            <div class="netflix-card vertical"><div class="netflix-card-img" style="background: #666;"></div></div>
+                            <div class="netflix-card vertical"><div class="netflix-card-img" style="background: #777;"></div></div>
+                            <div class="netflix-card vertical"><div class="netflix-card-img" style="background: #888;"></div></div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div class="netflix-tab-panel netflix-empty-panel" data-panel="games">
+                        <div class="netflix-empty-icon"><i class="fas fa-plus"></i></div>
+                        <h2>游戏</h2>
+                        <p>添加 Netflix 游戏内容</p>
+                    </div>
+
+                    <div class="netflix-tab-panel netflix-profile-panel" data-panel="profile">
+                        <div class="netflix-profile-avatar"><i class="fas fa-user"></i></div>
+                        <h2>我的 Netflix</h2>
+                        <p>你的片单、下载和观看记录会出现在这里</p>
+                        <div class="netflix-profile-list">
+                            <div><i class="fas fa-plus"></i><span>我的列表</span></div>
+                            <div><i class="fas fa-clock"></i><span>线下世界书</span></div>
+                            <div><i class="fas fa-download"></i><span>下载</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Bottom Nav -->
+                <div class="netflix-bottom-nav">
+                    <div class="netflix-nav-indicator"></div>
+                    <div class="netflix-nav-item active" data-tab="home">
+                        <i class="fas fa-home"></i>
+                        <span>首页</span>
+                    </div>
+                    <div class="netflix-nav-item" data-tab="games">
+                        <i class="fas fa-plus"></i>
+                        <span>游戏</span>
+                    </div>
+                    <div class="netflix-nav-item" data-tab="profile">
+                        <div class="netflix-nav-avatar"><i class="fas fa-user"></i></div>
+                        <span>我的 Netflix</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
             <!-- LOVES APP VIEW -->
             <!-- ========================================== -->
             <div class="app-view loves-view" id="loves-view">
@@ -4285,6 +4465,7 @@
     <script src="js/youtube/6_community.js"></script>
     <script src="js/youtube/7_trending.js"></script>
     <script src="js/youtube/8_user_live.js"></script>
+    <script src="js/netflix.js"></script>
     <!-- 引入主逻辑脚本 -->
     <script src="script.js"></script>
 </body>

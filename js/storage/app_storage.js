@@ -6,7 +6,7 @@
 
 (function() {
     const DB_NAME = 'iiso_app_storage';
-    const DB_VERSION = 1;
+    const DB_VERSION = 2;
     const STORAGE_SCHEMA_VERSION = 3;
     const PERSISTENT_LOCALSTORAGE_EXCLUDE_PREFIXES = ['iiso_auth_'];
 
@@ -1352,6 +1352,10 @@
     function normalizeGlobalPayload(payload = {}) {
         const safe = payload && typeof payload === 'object' ? payload : {};
         const themeState = safe.themeState && typeof safe.themeState === 'object' ? safe.themeState : null;
+        if (themeState) {
+            themeState.imessageChatCssEnabled = !!themeState.imessageChatCssEnabled;
+            themeState.imessageChatCss = typeof themeState.imessageChatCss === 'string' ? themeState.imessageChatCss : '';
+        }
 
         return {
             storageSchemaVersion: STORAGE_SCHEMA_VERSION,
@@ -1389,12 +1393,14 @@
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
             fontCssName: '',
             fontSize: 16,
-            fontSources: {
+                fontSources: {
                     woff2: '',
                     woff: '',
                     ttf: ''
                 },
                 savedFontPresets: [],
+                imessageChatCssEnabled: false,
+                imessageChatCss: '',
                 apps: [
                     { id: 'app-icon-1', name: 'Pay', icon: null },
                     { id: 'app-icon-2', name: 'TikTok', icon: null },
@@ -1402,7 +1408,7 @@
                     { id: 'app-icon-4', name: 'X', icon: null },
                     { id: 'app-icon-5', name: 'Diary', icon: null },
                     { id: 'app-icon-6', name: 'Maps', icon: null },
-                    { id: 'app-icon-7', name: 'AO3', icon: null },
+                    { id: 'app-icon-7', name: 'Netflix', icon: null },
                     { id: 'app-icon-8', name: 'Spotify', icon: null },
                     { id: 'dock-icon-settings', name: '设置', icon: null },
                     { id: 'dock-icon-imessage', name: '信息', icon: null },

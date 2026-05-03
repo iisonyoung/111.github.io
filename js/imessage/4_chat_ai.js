@@ -9,6 +9,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return (window.imData.friends || []).find((item) => String(item.id) === String(friendId)) || null;
     }
 
+    const aiReplyInFlight = new Set();
+
+    function getFriendKey(friendOrId) {
+        const rawId = friendOrId && typeof friendOrId === 'object' ? friendOrId.id : friendOrId;
+        return rawId == null ? '' : String(rawId);
+    }
+
+    function createApiRunId(friendId) {
+        const prefix = `api-${friendId || 'chat'}`;
+        return window.imChat.createMessageId
+            ? window.imChat.createMessageId(prefix)
+            : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
     function scheduleFriendPersistence(friendId, options = {}) {
         if (friendId == null) return false;
 
@@ -305,6 +319,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleAiReply(friend, container, btnEl) {
         console.log('handleAiReply invoked', { friend, btnEl });
+        const friendKey = getFriendKey(friend);
+        if (aiReplyInFlight.has(friendKey)) {
+            if (window.showToast) window.showToast('正在生成中');
+            return;
+        }
+
         const currentApiConfig = window.getApiConfig ? window.getApiConfig() : (window.apiConfig || {});
         const currentUserState = window.getUserState ? window.getUserState() : (window.userState || {});
         
@@ -315,6 +335,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let typingRow = null;
+        const apiRunId = createApiRunId(friendKey);
+        aiReplyInFlight.add(friendKey);
 
         try {
             typingRow = document.createElement('div');
@@ -416,11 +438,59 @@ document.addEventListener('DOMContentLoaded', () => {
 ${sections}`;
         }
 
+        // 提取日程信息
+        let scheduleSection = '';
+        let busyPrompt = '';
+        if (friend.memory?.schedule) {
+            const sch = friend.memory.schedule;
+            let schLines = [];
+            if (sch.sleepTime || sch.wakeTime) {
+                schLines.push(`作息时间：${sch.wakeTime || '未知'} 起床，${sch.sleepTime || '未知'} 睡觉`);
+            }
+            if (Array.isArray(sch.events) && sch.events.length > 0) {
+                schLines.push('近期行程安排：');
+                
+                const now = new Date();
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+                sch.events.forEach(e => {
+                    const startStr = e.startTime || e.time || '未知';
+                    const endStr = e.endTime || '未知';
+                    schLines.push(`- ${e.name} (${startStr} ~ ${endStr})`);
+                    
+                    if (e.startTime && e.endTime) {
+                        const parseTime = (t) => {
+                            const parts = t.split(':');
+                            return parts.length === 2 ? parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) : -1;
+                        };
+                        const startMins = parseTime(e.startTime);
+                        const endMins = parseTime(e.endTime);
+                        
+                        if (startMins !== -1 && endMins !== -1) {
+                            if (startMins <= endMins) {
+                                if (currentMinutes >= startMins && currentMinutes <= endMins) {
+                                    busyPrompt = `\n【行程限制】：角色当前正在进行行程安排：“${e.name}”。如果用户发来消息，你必须强制在所有回复内容（text 字段）的开头添加 "[自动回复] " 前缀，模拟正在忙碌时的自动响应。心声和面板状态也要符合正在忙碌的情境。`;
+                                }
+                            } else {
+                                if (currentMinutes >= startMins || currentMinutes <= endMins) {
+                                    busyPrompt = `\n【行程限制】：角色当前正在进行行程安排：“${e.name}”。如果用户发来消息，你必须强制在所有回复内容（text 字段）的开头添加 "[自动回复] " 前缀，模拟正在忙碌时的自动响应。心声和面板状态也要符合正在忙碌的情境。`;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            if (schLines.length > 0) {
+                scheduleSection = `Schedule / 行程作息:\n${schLines.join('\n')}`;
+            }
+        }
+
         const commonMemorySections = [
             friend.memory.overview ? `Overview:\n${friend.memory.overview}` : '',
             friend.memory.longTerm ? `Long-term Memory:\n${friend.memory.longTerm}` : '',
             friend.memory.context?.notes ? `Extra Context Notes:\n${friend.memory.context.notes}` : '',
             buildShortTermMemoryContext(friend),
+            scheduleSection,
             `Relationship Network:\n${relationshipText}`,
             (() => {
                 const mounted = friend.mountedStickers || [];
@@ -463,7 +533,7 @@ ${sections}`;
         ].filter(Boolean).join('\n\n');
 
         const lovesSpaceRequirement = friend.pendingLovesInvite ? `\n\n【情侣空间邀请事件】：User 刚刚向你发送了 Loves App 情侣空间的邀请卡片。你可以根据当前的好感度和角色性格，决定是否接受。\n如果选择接受，请在某一条对话文本(text字段)内任意位置包含 [ACCEPT_INVITE] 标记（该标记会被系统解析且不会展示给用户）。接受后，后续可能会触发空间内的互动。你也可以傲娇地不包含此标记，这代表你暂时忽略或拒绝了该邀请，那么一切照旧。` : '';
-        const lovesActionRequirement = `\n\n【Loves情侣空间联动】：如果你现在和User已经开启了情侣空间（如果在聊与空间的日常，或你们之前已开启），你可以主动在Loves应用中发布动态或添加日程：\n- 如果你听到了明确的未来时间计划，觉得应该记下来，请额外输出一个 <loves_schedule>{"title":"活动标题(10字内)","date":"YYYY-MM-DD","time":"HH:MM","description":"描述(选填)"}</loves_schedule> 标签。日期必须是未来的某天，参考当前系统时间。\n- 如果你今天心情特别好或有深刻的感悟想发在空间动态里（不需要艾特User），请额外输出一个 <loves_moment>{"content":"动态文字内容...","image":"可以为空"}</loves_moment> 标签。只有当你觉得真的想发动态时才输出。`;
+        const lovesActionRequirement = `\n\n【Loves情侣空间联动】：如果你现在和User已经开启了情侣空间（如果在聊与空间的日常，或你们之前已开启），你可以主动在Loves应用中发布动态或添加日程：\n- 如果你听到了明确的未来时间计划，觉得应该记下来，请额外输出一个 <loves_schedule>{"title":"活动标题(10字内)","date":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM","description":"描述(选填)"}</loves_schedule> 标签。日期必须是未来的某天，参考当前系统时间。这将被同步记录到你的个人 iCloud 日程中。\n- 如果你今天心情特别好或有深刻的感悟想发在空间动态里（不需要艾特User），请额外输出一个 <loves_moment>{"content":"动态文字内容...","image":"可以为空"}</loves_moment> 标签。只有当你觉得真的想发动态时才输出。`;
 
         const profilePanelRequirement = friend.type === 'group'
             ? ''
@@ -562,7 +632,7 @@ ${commonMemorySections || 'None'}`;
 【核心设定/Core Persona】：${friend.persona || 'No specific persona'}。
 You are talking to ${currentUserState.name || 'User'}, whose persona is: ${effectiveUserPersona || 'A normal user'}。
 【强制要求】：你必须在接下来的每一句对话、动作和心声中，深刻且精准地体现出你自己的【核心设定】，同时充分关注并根据用户的设定做出互动，绝对不能偏离人设！
-当前系统时间是：${timeString}。请在对话和心声中自然地感知并体现出对当前时间（如早晚、日期）的认知。${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContext}` : ''}${sleepPrompt}
+当前系统时间是：${timeString}。请在对话和心声中自然地感知并体现出对当前时间（如早晚、日期）的认知。${afterRoleWorldBookContext ? `\n\nAfter Role Rules:\n${afterRoleWorldBookContext}` : ''}${sleepPrompt}${busyPrompt}
 Reply naturally as your character in a chat app.
 请根据上下文，记忆，人设进行回复，一次按需求回复2-8条气泡。
 1. 【重要限制】：如果用户仅仅是口头提到“转账”，但系统并没有提示“[用户刚刚向你转账...]”，绝对禁止输出收下转账或退回转账的指令。
@@ -712,28 +782,30 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                     if (scheduleData.title && scheduleData.date) {
                         const newSchedule = {
                             id: 'sch_' + Date.now(),
+                            name: scheduleData.title,
                             title: scheduleData.title,
                             date: scheduleData.date,
-                            time: scheduleData.time || '00:00',
+                            startTime: scheduleData.startTime || scheduleData.time || '00:00',
+                            endTime: scheduleData.endTime || scheduleData.time || '00:00',
+                            time: scheduleData.time || scheduleData.startTime || '00:00',
                             location: scheduleData.description || '未设置地点',
                             timestamp: Date.now()
                         };
                         
                         if (/^\d{4}-\d{2}-\d{2}$/.test(newSchedule.date)) {
-                            if (!friend.lovesData) friend.lovesData = {};
-                            if (!friend.lovesData.schedules) friend.lovesData.schedules = [];
+                            if (!friend.memory) friend.memory = {};
+                            if (!friend.memory.schedule) friend.memory.schedule = {};
+                            if (!friend.memory.schedule.events) friend.memory.schedule.events = [];
                             
-                            friend.lovesData.schedules.push(newSchedule);
+                            friend.memory.schedule.events.push(newSchedule);
                             
                             if (window.imApp && window.imApp.showBannerNotification) {
-                                window.imApp.showBannerNotification(friend, `【Loves日程】添加了: ${scheduleData.title}`);
+                                window.imApp.showBannerNotification(friend, `【iCloud行程】添加了: ${scheduleData.title}`);
                             } else if (window.showToast) {
-                                window.showToast(`【Loves日程】${friend.nickname || friend.realName || 'TA'} 添加了: ${scheduleData.title}`);
+                                window.showToast(`【iCloud行程】${friend.nickname || friend.realName || 'TA'} 添加了: ${scheduleData.title}`);
                             }
                             
-                            if (window.lovesApp && window.lovesApp.persistFriendState) {
-                                window.lovesApp.persistFriendState(friend);
-                            } else if (window.imApp && window.imApp.commitScopedFriendChange) {
+                            if (window.imApp && window.imApp.commitScopedFriendChange) {
                                 window.imApp.commitScopedFriendChange(friend, () => {}, { silent: true });
                             }
                             
@@ -1049,7 +1121,8 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                             timestamp: nowMsg,
                             speakerMemberId: detectedSpeaker ? detectedSpeaker.id : '',
                             senderName: speakerName,
-                            senderAvatarUrl: detectedSpeaker ? detectedSpeaker.avatarUrl : ''
+                            senderAvatarUrl: detectedSpeaker ? detectedSpeaker.avatarUrl : '',
+                            apiRunId
                         }, activeFriend);
 
                         const freshContainer = getSafeContainer();
@@ -1106,7 +1179,8 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                                 cardTitle: '转账',
                                 payStatus: 'completed',
                                 content: `[角色转账] ${paymentDescription} ¥${paymentAmount.toFixed(2)}`,
-                                timestamp: nowMsg
+                                timestamp: nowMsg,
+                                apiRunId
                             };
 
                             const freshContainer = getSafeContainer();
@@ -1235,7 +1309,7 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
                 }
 
                 const nowMsg = Date.now();
-                const msgObj = { id: window.imChat.createMessageId('msg'), role: 'assistant', content: text, timestamp: nowMsg, replyTo: aiReplyTo };
+                const msgObj = { id: window.imChat.createMessageId('msg'), role: 'assistant', content: text, timestamp: nowMsg, replyTo: aiReplyTo, apiRunId };
                 if (currentSpeakerName) msgObj.speaker = currentSpeakerName;
                 if (speakerFriend.type === 'group' && currentItem.thought) {
                     msgObj.thought = currentItem.thought;
@@ -1320,7 +1394,73 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
             if (window.showToast) window.showToast(message);
             console.error('[iMessage API] request failed', error);
             if (btnEl) btnEl.style.opacity = '1';
+        } finally {
+            aiReplyInFlight.delete(friendKey);
         }
+    }
+
+    async function regenerateLastAiReply(friend, triggerEl = null) {
+        const friendKey = getFriendKey(friend);
+        if (!friendKey) return false;
+
+        if (aiReplyInFlight.has(friendKey)) {
+            if (window.showToast) window.showToast('正在生成中');
+            return false;
+        }
+
+        const liveFriend = getLiveFriendById(friendKey) || friend;
+        const messages = Array.isArray(liveFriend?.messages) ? liveFriend.messages : [];
+        const lastGeneratedMessage = messages.slice().reverse().find((msg) => msg && msg.apiRunId);
+
+        if (!lastGeneratedMessage || !lastGeneratedMessage.apiRunId) {
+            if (window.showToast) window.showToast('暂无可重回的回复');
+            return false;
+        }
+
+        const targetRunId = String(lastGeneratedMessage.apiRunId);
+        const targetMessages = messages.filter((msg) => msg && String(msg.apiRunId) === targetRunId);
+
+        if (targetMessages.length === 0) {
+            if (window.showToast) window.showToast('暂无可重回的回复');
+            return false;
+        }
+
+        const page = document.getElementById(`chat-interface-${friendKey}`);
+        const container = page ? page.querySelector('.ins-chat-messages') : null;
+
+        if (!container) {
+            if (window.showToast) window.showToast('重回失败');
+            return false;
+        }
+
+        const descriptors = targetMessages.map((msg) => ({
+            id: msg.id || null,
+            timestamp: msg.timestamp || null
+        }));
+
+        const saved = window.imApp.removeFriendMessages
+            ? await window.imApp.removeFriendMessages(friendKey, descriptors, { silent: true })
+            : (window.imApp.commitFriendChange
+                ? await window.imApp.commitFriendChange(friendKey, (targetFriend) => {
+                    if (!targetFriend || !Array.isArray(targetFriend.messages)) return;
+                    targetFriend.messages = targetFriend.messages.filter((msg) => !msg || String(msg.apiRunId) !== targetRunId);
+                    if (window.imApp.reindexFriendMessages) window.imApp.reindexFriendMessages(targetFriend);
+                    if (window.imApp.syncActiveFriendReference) window.imApp.syncActiveFriendReference(targetFriend);
+                }, { silent: true, metaOnly: false, includeMessages: true })
+                : false);
+
+        if (!saved) {
+            if (window.showToast) window.showToast('重回失败');
+            return false;
+        }
+
+        const latestFriend = getLiveFriendById(friendKey) || liveFriend;
+        if (window.imChat.rerenderChatContainer) {
+            window.imChat.rerenderChatContainer(latestFriend, container, { scroll: true });
+        }
+
+        await handleAiReply(latestFriend, container, triggerEl);
+        return true;
     }
 
     window.imChat.handleSend = handleSend;
@@ -1329,5 +1469,6 @@ ${commonMemorySections || 'None'}${profilePanelRequirement}${lovesSpaceRequireme
     window.imChat.parseJsonArrayFromText = parseJsonArrayFromText;
     window.imChat.normalizeProfilePanelPayload = normalizeProfilePanelPayload;
     window.imChat.handleAiReply = handleAiReply;
+    window.imChat.regenerateLastAiReply = regenerateLastAiReply;
 
 });
